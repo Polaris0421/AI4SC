@@ -1,0 +1,19 @@
+python main.py --data_path="data/test_supercon" --job_name="test" --run_mode="Training" --model="model_name" --epochs="5" --gc_count="20" --save_model="True" --model_path="checkpoints/my_model.pth"
+
+python main.py --data_path="data/order_data" --run_mode="Training" --job_name="order_bsgnn_embedding" --format="cif" --model="DEEP_GATGNN_demo" --batch_size="31" --epochs="500" --gc_count="20" --save_model="True" --model_path="checkpoints/order_bsgnn_embedding.pth"
+
+python main.py --data_path="data/order_data" --run_mode="Training" --job_name="order_bsgnn_embedding" --format="cif" --model="GATGNN_demo" --batch_size="31" --epochs="300"  --save_model="FALSE"
+
+python main.py --data_path="data/order_data" --run_mode="Repeat" --model="DEEP_GATGNN_demo" --batch_size="45" --epochs="1000" --gc_count="15" --save_model="FALSE" && python main.py --data_path="data/order_data" --run_mode="Repeat" --model="MEGNet_demo" --batch_size="31"  --save_model="FALSE" --epochs="500"
+
+python main.py --data_path="data/order_data" --run_mode="Training" --model="CGCNN_demo" --batch_size="31"  --save_model="FALSE" --reprocess="True" --format="cif" --epochs="500"
+
+python main.py --data_path="data/SuperCon3D/cif" --run_mode="Training" --model="SUPER_CGCNN_demo" --batch_size="63"  --save_model="FALSE" --reprocess="True" --format="cif" --epochs="500"
+
+python main.py --data_path="data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="500" && python main.py --data_path="data/SuperCon3D/cif" --run_mode="Repeat" --model="SUPER_CGCNN_demo" --batch_size="31"  --save_model="FALSE" && python main.py --data_path="data/SuperCon3D/cif" --run_mode="Repeat" --model="SUPER_CGCNN_demo" --batch_size="63"  --save_model="FALSE"
+
+
+
+python main.py --data_path="data/SuperCon3D/cif" --run_mode="Repeat" --model="SUPER_CGCNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="500" --reprocess="True" --format="cif"&&python main.py --data_path="data/SuperCon3D/cif" --run_mode="Repeat" --model="SUPER_CGCNN_demo" --batch_size="63"  --save_model="FALSE" --epochs="500"
+
+python main.py --data_path="data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="500" &&python main.py --data_path="data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="63"  --save_model="FALSE" --epochs="500"

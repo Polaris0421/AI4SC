@@ -1,0 +1,8 @@
+ase
+dscribe
+hyperopt
+joblib
+matplotlib
+# pickle5
+ray
+tensorboardX
