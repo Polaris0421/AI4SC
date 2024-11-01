@@ -12,6 +12,7 @@ import platform
 ##Torch imports
 import torch.nn.functional as F
 import torch
+import torch.nn as nn
 from torch_geometric.data import DataLoader, Dataset
 from torch_geometric.nn import DataParallel
 import torch_geometric.transforms as T
@@ -26,13 +27,13 @@ import matdeeplearn.process as process
 import matdeeplearn.training as training
 from matdeeplearn.models.utils import model_summary
 
-
+norm_emb = False
 ################################################################################
 #  Training functions
 ################################################################################
 
 ##Train step, runs model in train mode
-def train(model, optimizer, loader, loss_method, rank):
+def train(model, optimizer, loader, loss_method, rank, pt_model=None):
     model.train()
     loss_all = 0
     count = 0
@@ -40,8 +41,21 @@ def train(model, optimizer, loader, loss_method, rank):
         data = data.to(rank)
         optimizer.zero_grad()
         output = model(data)
-        # print(data.y.shape, output.shape)
-        loss = getattr(F, loss_method)(output, data.y)
+        
+        ### Pretrain Model Loss ###
+        if pt_model != None:
+            output, atom_emb_cg = model(data, pt=True)
+            
+            input = data.pretrain_data
+            atom_emb_pt = pt_model(input)
+            if norm_emb:
+                atom_emb_pt = (atom_emb_pt - atom_emb_pt.mean()) / atom_emb_pt.std()
+            
+            loss = getattr(F, loss_method)(output, data.y) + F.mse_loss(atom_emb_cg, atom_emb_pt)
+        else:
+            output = model(data)
+            loss = getattr(F, loss_method)(output, data.y)
+
         loss.backward()
         loss_all += loss.detach() * output.size(0)
 
@@ -112,19 +126,39 @@ def trainer(
         epochs,
         verbosity,
         filename="my_model_temp.pth",
+        pt_model=None,
+        aug_params=None
 ):
     train_error = val_error = test_error = epoch_time = float("NaN")
     train_start = time.time()
     best_val_error = 1e10
     model_best = model
+
+    ### Two Stage Training ###
+    not_aug_yet = True
+    if aug_params != None:
+        aug, aug_times, aug_stage, dataset_params = aug_params
+        
+
     ##Start training over epochs loop
     for epoch in range(1, epochs + 1):
 
         lr = scheduler.optimizer.param_groups[0]["lr"]
         if rank not in ("cpu", "cuda"):
             train_sampler.set_epoch(epoch)
+
+        ### Two Stage Training ###
+        if aug and not_aug_yet and epoch > int(epochs * aug_stage):
+            dataset, data_path, batch_size = dataset_params
+            train_dataset, _, _ = process.split_data_own(dataset, data_path, aug=aug, repeat=aug_times)
+
+            train_loader = DataLoader(train_dataset,batch_size=batch_size,
+                                      shuffle=True, num_workers=0,pin_memory=True,)
+            not_aug_yet = False
+            print('Having Augument Tc > 10')
+        
         ##Train model
-        train_error = train(model, optimizer, train_loader, loss, rank=rank)
+        train_error = train(model, optimizer, train_loader, loss, rank=rank, pt_model=pt_model)
         if rank not in ("cpu", "cuda"):
             torch.distributed.reduce(train_error, dst=0)
             train_error = train_error / world_size
@@ -391,6 +425,7 @@ def train_regular(
         job_parameters=None,
         training_parameters=None,
         model_parameters=None,
+        pt_model=None,
 ):
     ##DDP
     ddp_setup(rank, world_size)
@@ -400,6 +435,13 @@ def train_regular(
 
     ##Get dataset
     dataset = process.get_dataset(data_path, training_parameters["target_index"], False)
+
+    ### Two Stage Training ###
+    if training_parameters['aug']:
+        aug_params = [training_parameters['aug'], training_parameters['aug_times'], training_parameters['aug_stage'],
+                      [dataset, data_path, model_parameters["batch_size"]]]
+    else:
+        aug_params = None
 
     if rank not in ("cpu", "cuda"):
         dist.barrier()
@@ -460,6 +502,8 @@ def train_regular(
         model_parameters["epochs"],
         training_parameters["verbosity"],
         "my_model_temp.pth",
+        pt_model=pt_model,
+        aug_params=aug_params
     )
 
     if rank in (0, "cpu", "cuda"):
@@ -745,6 +789,20 @@ def train_repeat(
     job_parameters["write_error"] = "True"
     job_parameters["load_model"] = "False"
     job_parameters["save_model"] = "False"
+
+    ### Pretrain Model ###
+    if model_parameters['pt']:
+        checkpoint_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
+                                            "../models/pretrain_model.pth.tar")
+        checkpoint = torch.load(checkpoint_file_path)
+        
+        pt_model = nn.Linear(92, 64, bias=False)
+        pt_model.load_state_dict({'weight':checkpoint['state_dict']['embedding.weight']})
+        pt_model = pt_model.cuda()
+    else:
+        pt_model = None
+
+ 
     ##Loop over number of repeated trials
     for i in range(0, job_parameters["repeat_trials"]):
 
@@ -768,6 +826,7 @@ def train_repeat(
                 job_parameters,
                 training_parameters,
                 model_parameters,
+                pt_model
             )
         elif world_size > 0:
             if job_parameters["parallel"] == "True":
@@ -780,6 +839,7 @@ def train_repeat(
                         job_parameters,
                         training_parameters,
                         model_parameters,
+                        pt_model
                     ),
                     nprocs=world_size,
                     join=True,
@@ -793,6 +853,7 @@ def train_repeat(
                     job_parameters,
                     training_parameters,
                     model_parameters,
+                    pt_model
                 )
 
     ##Compile error metrics from individual trials

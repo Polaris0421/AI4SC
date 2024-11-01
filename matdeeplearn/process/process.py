@@ -73,6 +73,7 @@ def split_data(
 ##Use own split
 def split_data_own(dataset,
                    data_path,
+                   aug=False,
                    repeat=0,
                    ):
     train_file = os.path.join(data_path, 'train_Tc.csv')
@@ -91,9 +92,12 @@ def split_data_own(dataset,
     train_index = np.where(np.isin(whole_cf, train_cf) == True)[0]
     val_index = [list(whole_cf).index(i) for i in val_cf]
     test_index = [list(whole_cf).index(i) for i in test_cf]
-    whole_10 = whole_data.iloc[train_index]
-    train_index_10 = whole_10[whole_10.iloc[:, 2] > 10].index.tolist()
-    train_index = train_index.tolist() + train_index_10 * repeat
+
+    if aug:
+        whole_10 = whole_data.iloc[train_index]
+        train_index_10 = whole_10[whole_10.iloc[:, 2] > 10].index.tolist()
+        train_index = train_index.tolist() + train_index_10 * repeat
+    
     train_dataset = dataset[train_index]
     val_dataset = dataset[val_index]
     test_dataset = dataset[test_index]
@@ -226,6 +230,63 @@ class StructureDataset_large(Dataset):
         data = torch.load(os.path.join(self.processed_dir, "data_{}.pt".format(idx)))
         return data
 
+################################################################################
+# Pretrain_data
+################################################################################
+class AtomInitializer(object):
+    def __init__(self, atom_types):
+        self.atom_types = set(atom_types)
+        self._embedding = {}
+
+    def get_atom_fea(self, atom_type):
+        assert atom_type in self.atom_types
+        return self._embedding[atom_type]
+
+    def load_state_dict(self, state_dict):
+        self._embedding = state_dict
+        self.atom_types = set(self._embedding.keys())
+        self._decodedict = {idx: atom_type for atom_type, idx in
+                            self._embedding.items()}
+
+    def state_dict(self):
+        return self._embedding
+
+    def decode(self, idx):
+        if not hasattr(self, '_decodedict'):
+            self._decodedict = {idx: atom_type for atom_type, idx in
+                                self._embedding.items()}
+        return self._decodedict[idx]
+
+
+class AtomCustomJSONInitializer(AtomInitializer):
+    def __init__(self, elem_embedding_file):
+        with open(elem_embedding_file) as f:
+            elem_embedding = json.load(f)
+        elem_embedding = {int(key): value for key, value
+                          in elem_embedding.items()}
+        atom_types = set(elem_embedding.keys())
+        super(AtomCustomJSONInitializer, self).__init__(atom_types)
+        for key, value in elem_embedding.items():
+            self._embedding[key] = np.array(value, dtype=float)
+
+def get_pretrain_data(crystal):
+                          
+    atom_init_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                  "atom_init.json",)
+    ari = AtomCustomJSONInitializer(atom_init_file)
+
+    ### disorder处理方式；
+    atom_fea = []
+    for site in crystal:
+        fea = np.array([0.0] * 92)
+        for element, occupancy in site.species.items():
+            fea += np.array(ari.get_atom_fea(element.Z)) * occupancy
+        atom_fea.append(fea)
+    atom_fea = np.vstack(atom_fea).astype(float)
+    atom_fea = torch.Tensor(atom_fea)
+
+    return atom_fea
+################################################################################
 
 ################################################################################
 #  Processing
@@ -301,6 +362,11 @@ def process_data(data_path, processed_path, processing_args):
             pym_atoms = ase.io.read(file_name)
             pym_atoms = AseAtomsAdaptor.get_structure(pym_atoms)
         data.pym_atoms = pym_atoms
+
+        ### Pretrain ### 
+        # 获取pretrain原子特征
+        atom_fea = get_pretrain_data(pym_atoms)
+        data.pretrain_data = atom_fea
 
         ##Compile structure sizes (# of atoms) and elemental compositions
         if index == 0:

@@ -12,6 +12,10 @@ Job:
         parallel: "False"
         #seed=0 means random initalization
         seed: 0        
+        pt: "False"
+        aug: "False"
+        aug_times: 5
+        aug_stage: 0
     Predict:
         job_name: "my_predict_job"
         reprocess: "False"    
@@ -115,12 +119,12 @@ Training:
     val_ratio: 0.1
     test_ratio: 0.1
     #Training print out frequency (print per n number of epochs)
-    verbosity: 5
+    verbosity: 100
     
 Models:        
     CGCNN_demo:
         model: CGCNN
-        dim1: 100
+        dim1: 64
         dim2: 150
         pre_fc_count: 1
         gc_count: 4
@@ -140,7 +144,7 @@ Models:
         scheduler_args: {"mode":"min", "factor":0.9, "patience":15, "min_lr":0.00001, "threshold":0.0002}
     SUPER_CGCNN_demo:
         model: SUPER_CGCNN
-        dim1: 100
+        dim1: 64
         dim2: 150
         pre_fc_count: 1
         gc_count: 4

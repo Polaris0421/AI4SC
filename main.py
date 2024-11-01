@@ -1,4 +1,5 @@
 import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import argparse
 import time
 import csv
@@ -121,6 +122,7 @@ def main():
     parser.add_argument(
         "--verbosity", default=None, type=int, help="prints errors every x epochs"
     )
+
     parser.add_argument(
         "--target_index",
         default=None,
@@ -148,6 +150,35 @@ def main():
         type=float,
         help="dropout rate",
     )
+
+    ### Others
+    # pretrain
+    parser.add_argument(
+        "--pt",
+        default=False,
+        type=bool,
+        help="Using Pretrain Model Embedding",
+    ) 
+
+    # augumentation
+    parser.add_argument(
+        "--aug",
+        default=False,
+        type=bool,
+        help="If Using Augumentation",
+    ) 
+    parser.add_argument(
+        "--aug_times",
+        default=5,
+        type=int,
+        help="Augumentation times",
+    ) 
+    parser.add_argument(
+        "--aug_stage",
+        default=0.,
+        type=float,
+        help="Augumentation stage; i.e. 0.6 is 60%",
+    ) 
 
     ##Get arguments from command line
     args = parser.parse_args(sys.argv[1:])
@@ -203,6 +234,13 @@ def main():
     if args.target_index != None:
         config["Training"]["target_index"] = args.target_index
 
+    if args.aug != None:
+        config["Training"]["aug"] = args.aug
+    if args.aug_times != None:
+        config["Training"]["aug_times"] = args.aug_times
+    if args.aug_stage != None:
+        config["Training"]["aug_stage"] = args.aug_stage
+
     for key in config["Models"]:
         if args.epochs != None:
             config["Models"][key]["epochs"] = args.epochs
@@ -214,6 +252,8 @@ def main():
             config["Models"][key]["gc_count"] = args.gc_count
         if args.dropout_rate != None:
             config["Models"][key]["dropout_rate"] = args.dropout_rate
+        if args.pt != None: ### Pretrain ###
+            config["Models"][key]["pt"] = args.pt
 
     if run_mode == "Predict":
         config["Models"] = {}

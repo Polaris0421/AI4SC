@@ -141,7 +141,7 @@ class SUPER_CGCNN(torch.nn.Module):
                 lin = torch.nn.Linear(post_fc_dim, post_fc_dim)
                 self.info_list.append(lin)
 
-    def forward(self, data):
+    def forward(self, data, pt=False):
 
         ##Pre-GNN dense layers
         for i in range(0, len(self.pre_lin_list)):
@@ -154,6 +154,7 @@ class SUPER_CGCNN(torch.nn.Module):
                 out = getattr(F, self.act)(out)
                 #out = torch.add(out, prev_out)
                 #prev_out = out
+        atom_emb = out
         prev_out = out
 
 
@@ -220,7 +221,14 @@ class SUPER_CGCNN(torch.nn.Module):
             else:
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
 
-        if out.shape[1] == 1:
-            return out.view(-1)
+
+        if pt: ### Pretrain ###
+            if out.shape[1] == 1:
+                return out.view(-1), atom_emb
+            else:
+                return out, atom_emb
         else:
-            return out
+            if out.shape[1] == 1:
+                return out.view(-1)
+            else:
+                return out
