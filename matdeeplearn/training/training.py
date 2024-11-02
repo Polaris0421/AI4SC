@@ -140,6 +140,8 @@ def trainer(
     not_aug_yet = True
     if aug_params != None:
         aug, aug_times, aug_stage, dataset_params = aug_params
+    else:
+        aug = 'False'
 
     ##Start training over epochs loop
     for epoch in range(1, epochs + 1):
@@ -149,7 +151,7 @@ def trainer(
             train_sampler.set_epoch(epoch)
 
         ### Two Stage Training ###
-        if aug and not_aug_yet and epoch > int(epochs * aug_stage):
+        if aug=='True' and not_aug_yet and epoch > int(epochs * aug_stage):
             dataset, data_path, batch_size = dataset_params
             train_dataset, _, _ = process.split_data_own(dataset, data_path, aug=aug, repeat=aug_times)
 
@@ -437,7 +439,7 @@ def train_regular(
     dataset = process.get_dataset(data_path, training_parameters["target_index"], False)
 
     ### Two Stage Training ###
-    if training_parameters['aug']:
+    if training_parameters['aug'] == 'True':
         aug_params = [training_parameters['aug'], training_parameters['aug_times'], training_parameters['aug_stage'],
                       [dataset, data_path, model_parameters["batch_size"]]]
     else:
@@ -839,7 +841,7 @@ def train_repeat(
     job_parameters["save_model"] = "False"
 
     ### Pretrain Model ###
-    if model_parameters['pt']:
+    if model_parameters['pt'] == 'True':
         print("using pretrain model")
         checkpoint_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                             "../models/pretrain_model.pth.tar")

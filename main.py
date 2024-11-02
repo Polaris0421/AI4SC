@@ -161,8 +161,8 @@ def main():
     # pretrain
     parser.add_argument(
         "--pt",
-        default=False,
-        type=bool,
+        default='False',
+        type=str,
         help="Using Pretrain Model Embedding",
     )
 
@@ -176,10 +176,11 @@ def main():
     # augumentation
     parser.add_argument(
         "--aug",
-        default=False,
-        type=bool,
+        default='False',
+        type=str, 
         help="If Using Augumentation",
     ) 
+    
     parser.add_argument(
         "--aug_times",
         default=5,
