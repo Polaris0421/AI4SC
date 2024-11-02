@@ -120,6 +120,7 @@ class CGCNN(torch.nn.Module):
 
         # set up data.info processing
         self.info_list = torch.nn.ModuleList()
+        print("using info layers:", info_fc_count)
         if info_fc_count == 1:
             lin = torch.nn.Linear(data.info.shape[1], post_fc_dim)
             self.info_list.append(lin)
@@ -196,7 +197,7 @@ class CGCNN(torch.nn.Module):
                 out = getattr(torch_geometric.nn, self.pool)(out, data.batch)
 
         ### Pretrain ###
-        if pt:  
+        if pt:
             if out.shape[1] == 1:
                 return out.view(-1), atom_emb
             else:

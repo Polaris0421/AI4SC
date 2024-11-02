@@ -12,7 +12,6 @@ from scipy.stats import rankdata
 from scipy import interpolate
 import pandas as pd
 
-
 ##torch imports
 import torch
 import torch.nn.functional as F
@@ -97,7 +96,7 @@ def split_data_own(dataset,
         whole_10 = whole_data.iloc[train_index]
         train_index_10 = whole_10[whole_10.iloc[:, 2] > 10].index.tolist()
         train_index = train_index.tolist() + train_index_10 * repeat
-    
+
     train_dataset = dataset[train_index]
     val_dataset = dataset[val_index]
     test_dataset = dataset[test_index]
@@ -230,6 +229,7 @@ class StructureDataset_large(Dataset):
         data = torch.load(os.path.join(self.processed_dir, "data_{}.pt".format(idx)))
         return data
 
+
 ################################################################################
 # Pretrain_data
 ################################################################################
@@ -269,10 +269,10 @@ class AtomCustomJSONInitializer(AtomInitializer):
         for key, value in elem_embedding.items():
             self._embedding[key] = np.array(value, dtype=float)
 
+
 def get_pretrain_data(crystal):
-                          
     atom_init_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                  "atom_init.json",)
+                                  "atom_init.json", )
     ari = AtomCustomJSONInitializer(atom_init_file)
 
     ### disorder处理方式；
@@ -286,6 +286,8 @@ def get_pretrain_data(crystal):
     atom_fea = torch.Tensor(atom_fea)
 
     return atom_fea
+
+
 ################################################################################
 
 ################################################################################
@@ -374,14 +376,6 @@ def process_data(data_path, processed_path, processing_args):
         else:
             length.append(len(pym_atoms))
 
-        ##Obtain multi-edge and lattice features
-        # edge_index, edge_weight = periodic_edge_feature(file_name,
-        #                                                 max_neighbors=processing_args["graph_max_neighbors"],
-        #                                                 cutoff=processing_args["graph_max_radius"],
-        #                                                 )
-        # data.edge_index = edge_index
-        # data.edge_weight = edge_weight
-
         ##Obtain distance matrix with ase
         distance_matrix = pym_atoms.distance_matrix
         ##Create sparse graph from distance matrix
@@ -399,17 +393,6 @@ def process_data(data_path, processed_path, processing_args):
         # 原始自连接
         edge_index, edge_weight = add_self_loops(
             edge_index, edge_weight, fill_value=0)
-
-        # 自连接添加lattice信息
-        # lattices = [pym_atoms.lattice.a, pym_atoms.lattice.b, pym_atoms.lattice.c]
-        # lattices_distances = [np.sum(lattices[i] ** 2) ** 0.5 for i in range(3)]
-        # for i in range(3):
-        #     lattices_distances.append(np.sum(lattices[-i] ** 2) ** 0.5)
-        # for lattices_distance in lattices_distances:
-        #     if lattices_distance <= processing_args["graph_max_radius"]:
-        #         edge_index, edge_weight = add_self_loops(
-        #             edge_index, edge_weight,  fill_value=lattices_distance
-        #         )
 
         data.edge_index = edge_index
         data.edge_weight = edge_weight
@@ -443,15 +426,15 @@ def process_data(data_path, processed_path, processing_args):
         disorder = False
         for site in pym_atoms:
             for element, occupancy in site.species.items():
-                if occupancy<1:
+                if occupancy < 1:
                     disorder = True
                     break
             break
+        occupancy1 = []
         if disorder:
             data.if_order = torch.tensor([0, 1]).float().reshape(1, -1)
             atom_index = []
             atom_index1 = []
-            occupancy1 = []
             for site in pym_atoms:
                 atom_index.append(site.species.elements[0].Z)
                 try:
@@ -466,13 +449,29 @@ def process_data(data_path, processed_path, processing_args):
             occupancy_mean = np.array(occupancy1).mean()
             glob_feat = glob_feat * occupancy_mean + glob_feat1 * (1 - occupancy_mean)
         else:
-            data.if_order = torch.tensor([1, 0]).float().reshape(1, -1)
             atom_index = []
             for site in pym_atoms:
                 atom_index.append(site.species.elements[0].Z)
             glob_feat = create_global_feat(atom_index)
-
+            occupancy1 = [1] * len(atom_index)
+            atom_index1 = atom_index
         data.glob_feat = torch.Tensor(glob_feat).float()
+
+        # 编码disorder程度，[order占比，替代无序占比，位置无序占比]
+        atom_num = len(atom_index)
+        order_num = 0
+        replace_num = 0
+        position_num = 0
+        for i in range(atom_num):
+            if occupancy1[i] == 1:
+                order_num += 1
+            else:
+                if atom_index[i] != atom_index1[i]:
+                    replace_num += 1
+                else:
+                    position_num += 1
+        data.disorder_feat = torch.Tensor([order_num / atom_num, replace_num / atom_num, position_num / atom_num]).reshape(1, -1)
+
 
         # 记录lattice和angle等其他晶胞的信息
         info = np.array([pym_atoms.lattice.a, pym_atoms.lattice.b, pym_atoms.lattice.c,

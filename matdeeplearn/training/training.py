@@ -790,6 +790,7 @@ def train_repeat(
 
     ### Pretrain Model ###
     if model_parameters['pt']:
+        print("using pretrain model")
         checkpoint_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                             "../models/pretrain_model.pth.tar")
         checkpoint = torch.load(checkpoint_file_path)
