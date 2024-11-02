@@ -72,7 +72,7 @@ def split_data(
 ##Use own split
 def split_data_own(dataset,
                    data_path,
-                   aug=False,
+                   aug='False',
                    repeat=0,
                    ):
     train_file = os.path.join(data_path, 'train_Tc.csv')
@@ -92,7 +92,7 @@ def split_data_own(dataset,
     val_index = [list(whole_cf).index(i) for i in val_cf]
     test_index = [list(whole_cf).index(i) for i in test_cf]
 
-    if aug:
+    if aug == 'True':
         whole_10 = whole_data.iloc[train_index]
         train_index_10 = whole_10[whole_10.iloc[:, 2] > 10].index.tolist()
         train_index = train_index.tolist() + train_index_10 * repeat
