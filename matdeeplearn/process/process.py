@@ -11,7 +11,7 @@ from ase import io
 from scipy.stats import rankdata
 from scipy import interpolate
 import pandas as pd
-from .edge_feature_generation import periodic_edge_feature
+
 
 ##torch imports
 import torch
@@ -480,19 +480,13 @@ def process_data(data_path, processed_path, processing_args):
                          pym_atoms.volume, pym_atoms.density]).reshape(1, -1)
         info = torch.Tensor(info).float()
         # info = torch.cat([info, data.family, data.glob_feat], dim=1)
-        info = torch.cat([info, data.family, data.if_order], dim=1)
-        # info = torch.cat([info, data.family], dim=1)
+        # info = torch.cat([info, data.family, data.if_order], dim=1) TODO:if_order 该怎么处理
+        info = torch.cat([info, data.family], dim=1)
         # info = data.family
         info = info.repeat(len(atom_index), 1)
         data.info = torch.Tensor(info).float()
 
-        ###placeholder for state feature
-        u = np.zeros((3))
-        u = torch.Tensor(u[np.newaxis, ...])
-        data.u = u
-
-        data.structure_id = [[structure_id] * len(data.y)]
-
+        # 打印处理进度
         if processing_args["verbose"] == "True" and (
                 (index + 1) % 500 == 0 or (index + 1) == len(target_data)
         ):

@@ -28,6 +28,8 @@ import matdeeplearn.training as training
 from matdeeplearn.models.utils import model_summary
 
 norm_emb = False
+
+
 ################################################################################
 #  Training functions
 ################################################################################
@@ -41,17 +43,17 @@ def train(model, optimizer, loader, loss_method, rank, pt_model=None):
         data = data.to(rank)
         optimizer.zero_grad()
         output = model(data)
-        
+
         ### Pretrain Model Loss ###
         if pt_model != None:
             output, atom_emb_cg = model(data, pt=True)
-            
+
             input = data.pretrain_data
             atom_emb_pt = pt_model(input)
             if norm_emb:
                 atom_emb_pt = (atom_emb_pt - atom_emb_pt.mean()) / atom_emb_pt.std()
-            
-            loss = getattr(F, loss_method)(output, data.y) + F.mse_loss(atom_emb_cg, atom_emb_pt)
+
+            loss = getattr(F, loss_method)(output, data.y) + 1e-3*F.mse_loss(atom_emb_cg, atom_emb_pt)
         else:
             output = model(data)
             loss = getattr(F, loss_method)(output, data.y)
@@ -138,7 +140,6 @@ def trainer(
     not_aug_yet = True
     if aug_params != None:
         aug, aug_times, aug_stage, dataset_params = aug_params
-        
 
     ##Start training over epochs loop
     for epoch in range(1, epochs + 1):
@@ -152,11 +153,11 @@ def trainer(
             dataset, data_path, batch_size = dataset_params
             train_dataset, _, _ = process.split_data_own(dataset, data_path, aug=aug, repeat=aug_times)
 
-            train_loader = DataLoader(train_dataset,batch_size=batch_size,
-                                      shuffle=True, num_workers=0,pin_memory=True,)
+            train_loader = DataLoader(train_dataset, batch_size=batch_size,
+                                      shuffle=True, num_workers=0, pin_memory=True, )
             not_aug_yet = False
-            print('Having Augument Tc > 10')
-        
+            print('Having Augument Tc > 10, the training length now is:', len(train_dataset))
+
         ##Train model
         train_error = train(model, optimizer, train_loader, loss, rank=rank, pt_model=pt_model)
         if rank not in ("cpu", "cuda"):
@@ -327,9 +328,6 @@ def loader_setup(
     #     dataset, train_ratio, val_ratio, test_ratio, seed
     # )
     train_dataset, val_dataset, test_dataset = process.split_data_own(dataset, data_path)
-    print("train length:", len(train_dataset), "val length:", len(val_dataset), "test length:", len(test_dataset))
-
-
 
     ##DDP
     if rank not in ("cpu", "cuda"):
@@ -792,17 +790,16 @@ def train_repeat(
 
     ### Pretrain Model ###
     if model_parameters['pt']:
-        checkpoint_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
+        checkpoint_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                             "../models/pretrain_model.pth.tar")
         checkpoint = torch.load(checkpoint_file_path)
-        
+
         pt_model = nn.Linear(92, 64, bias=False)
-        pt_model.load_state_dict({'weight':checkpoint['state_dict']['embedding.weight']})
+        pt_model.load_state_dict({'weight': checkpoint['state_dict']['embedding.weight']})
         pt_model = pt_model.cuda()
     else:
         pt_model = None
 
- 
     ##Loop over number of repeated trials
     for i in range(0, job_parameters["repeat_trials"]):
 
