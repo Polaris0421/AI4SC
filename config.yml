@@ -29,7 +29,8 @@ Job:
         model_path: "my_model.pth"
         write_output: "False"
         parallel: "False"
-        seed: 0      
+        seed: 0
+        find_disorder: "False"
         ###specific options
         #number of repeat trials
         repeat_trials: 5
@@ -129,7 +130,7 @@ Models:
         pre_fc_count: 1
         gc_count: 4
         post_fc_count: 3
-        info_fc_count: 1
+        info_fc_count: 2
         pool_order: "early"
         batch_norm: "True"
         batch_track_stats: "True"

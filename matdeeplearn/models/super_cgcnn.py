@@ -124,6 +124,7 @@ class SUPER_CGCNN(torch.nn.Module):
             self.lin_out_2 = torch.nn.Linear(output_dim * 2, output_dim)
 
         if if_info:
+            print("using info layers:", info_fc_count)
             self.info_list = torch.nn.ModuleList()
             if info_fc_count == 1:
                 lin = torch.nn.Linear(data.info.shape[1], post_fc_dim)

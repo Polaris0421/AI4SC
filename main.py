@@ -145,6 +145,12 @@ def main():
         help="number of gc layers",
     )
     parser.add_argument(
+        "--info_fc_count",
+        default=None,
+        type=int,
+        help="number of info processing layers",
+    )
+    parser.add_argument(
         "--dropout_rate",
         default=None,
         type=float,
@@ -158,7 +164,14 @@ def main():
         default=False,
         type=bool,
         help="Using Pretrain Model Embedding",
-    ) 
+    )
+
+    # 是否单独打印disorder的内容
+    parser.add_argument(
+        "--find_disorder",
+        default=False,
+        type=bool,
+    )
 
     # augumentation
     parser.add_argument(
@@ -250,6 +263,10 @@ def main():
             config["Models"][key]["lr"] = args.lr
         if args.gc_count != None:
             config["Models"][key]["gc_count"] = args.gc_count
+        if args.info_fc_count != None:
+            config["Models"][key]["info_fc_count"] = args.info_fc_count
+        if args.find_disorder != None:
+            config["Models"][key]["find_disorder"] = args.find_disorder
         if args.dropout_rate != None:
             config["Models"][key]["dropout_rate"] = args.dropout_rate
         if args.pt != None: ### Pretrain ###

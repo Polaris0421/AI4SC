@@ -319,7 +319,7 @@ def loader_setup(
         batch_size,
         dataset,
         rank,
-        repeat_times=5,
+        find_disorder=False,
         world_size=0,
         num_workers=0,
 ):
@@ -327,7 +327,8 @@ def loader_setup(
     # train_dataset, val_dataset, test_dataset = process.split_data(
     #     dataset, train_ratio, val_ratio, test_ratio, seed
     # )
-    train_dataset, val_dataset, test_dataset = process.split_data_own(dataset, data_path)
+    train_dataset, val_dataset, test_dataset = process.split_data_own(dataset, data_path, find_disorder=find_disorder)
+
 
     ##DDP
     if rank not in ("cpu", "cuda"):
@@ -424,6 +425,7 @@ def train_regular(
         training_parameters=None,
         model_parameters=None,
         pt_model=None,
+        find_disorder=False,
 ):
     ##DDP
     ddp_setup(rank, world_size)
@@ -461,8 +463,6 @@ def train_regular(
         model_parameters["batch_size"],
         dataset,
         rank,
-        job_parameters["seed"],
-        world_size,
     )
 
     ##Set up model
@@ -537,6 +537,54 @@ def train_regular(
                 test_loader, model, training_parameters["loss"], rank, out=True
             )
             print("Test Error: {:.5f}".format(test_error))
+
+        # 单独返回disorder上的结果
+        if rank in (0, "cpu", "cuda") and find_disorder:
+
+            train_error = val_error = test_error = float("NaN")
+
+            ##workaround to get training output in DDP mode
+            ##outputs are slightly different, could be due to dropout or batchnorm?
+            (
+                train_loader,
+                val_loader,
+                test_loader,
+                train_sampler,
+                train_dataset,
+                _,
+                _,
+            ) = loader_setup(
+                data_path,
+                training_parameters["train_ratio"],
+                training_parameters["val_ratio"],
+                training_parameters["test_ratio"],
+                model_parameters["batch_size"],
+                dataset,
+                rank,
+                find_disorder,
+            )
+
+            ##Get train error in eval mode
+            train_error, train_out, train_metrics = evaluate(
+                train_loader, model, training_parameters["loss"], rank, out=True
+            )
+            print("Disorder Train Error: {:.5f}".format(train_error))
+
+            ##Get val error
+            if val_loader != None:
+                val_error, val_out, val_metrics = evaluate(
+                    val_loader, model, training_parameters["loss"], rank, out=True
+                )
+                print("Disorder Val Error: {:.5f}".format(val_error))
+
+            ##Get test error
+            if test_loader != None:
+                test_error, test_out, test_metrics = evaluate(
+                    test_loader, model, training_parameters["loss"], rank, out=True
+                )
+                print("Disorder Test Error: {:.5f}".format(test_error))
+
+
 
         ##Save model
         if job_parameters["save_model"] == "True":
@@ -780,10 +828,12 @@ def train_repeat(
         job_parameters=None,
         training_parameters=None,
         model_parameters=None,
+
 ):
     world_size = torch.cuda.device_count()
     job_name = job_parameters["job_name"]
     model_path = job_parameters["model_path"]
+    find_disorder = model_parameters["find_disorder"]
     job_parameters["write_error"] = "True"
     job_parameters["load_model"] = "False"
     job_parameters["save_model"] = "False"
@@ -824,7 +874,8 @@ def train_repeat(
                 job_parameters,
                 training_parameters,
                 model_parameters,
-                pt_model
+                pt_model,
+                find_disorder=find_disorder
             )
         elif world_size > 0:
             if job_parameters["parallel"] == "True":
@@ -851,7 +902,8 @@ def train_repeat(
                     job_parameters,
                     training_parameters,
                     model_parameters,
-                    pt_model
+                    pt_model,
+                    find_disorder=find_disorder
                 )
 
     ##Compile error metrics from individual trials

@@ -3,6 +3,7 @@ python main.py --data_path="../data/order_data" --run_mode="Repeat" --model="SUP
 python main.py --data_path="data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="500" &&python main.py --data_path="data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="63"  --save_model="FALSE" --epochs="500"
 
 # aug & pt & reprocess
-python main.py --data_path="temp_data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="500" --aug="True" --aug_times=2 --aug_stage=0.0 --pt="True" --reprocess="True" --format="cif"
+python main.py --data_path="temp_data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="50" --aug="True" --aug_times=2 --aug_stage=0.0 --pt="True" --reprocess="True" --format="cif"
 
-python main.py --data_path="temp_data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="500" --aug="True" --aug_times=2 --aug_stage=0.0 --pt="True"&&python main.py --data_path="temp_data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="63"  --save_model="FALSE" --epochs="500" --aug="True" --aug_times=2 --aug_stage=0.0 --pt="True" &&python main.py --data_path="temp_data/order_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="500" --aug="True" --aug_times=5 --aug_stage=0.0 --pt="False"
+python main.py --data_path="temp_data/all_data" --run_mode="Repeat" --model="CGCNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="5" --aug="False" --aug_times=0 --aug_stage=0.0 --info_fc_count="2" --find_disorder="True"
+

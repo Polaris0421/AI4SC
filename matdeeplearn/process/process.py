@@ -74,6 +74,7 @@ def split_data_own(dataset,
                    data_path,
                    aug=False,
                    repeat=0,
+                   find_disorder=False,
                    ):
     train_file = os.path.join(data_path, 'train_Tc.csv')
     val_file = os.path.join(data_path, 'val_Tc.csv')
@@ -94,14 +95,17 @@ def split_data_own(dataset,
 
     if aug:
         whole_10 = whole_data.iloc[train_index]
-        train_index_10 = whole_10[whole_10.iloc[:, 2] > 10].index.tolist()
+        train_index_10 = whole_10[whole_10.iloc[:, 3] > 10].index.tolist()
         train_index = train_index.tolist() + train_index_10 * repeat
 
     train_dataset = dataset[train_index]
     val_dataset = dataset[val_index]
     test_dataset = dataset[test_index]
-    print("Using own split")
-
+    if find_disorder:
+        train_dataset = [data for data in train_dataset if data.if_order[0,0].item() == 1]
+        val_dataset = [data for data in val_dataset if data.if_order[0,0].item() == 1]
+        test_dataset = [data for data in test_dataset if data.if_order[0,0].item() == 1]
+        print('Find disorder,Train:', len(train_dataset), 'Val:', len(val_dataset), 'Test:', len(test_dataset))
     return train_dataset, val_dataset, test_dataset
 
 
@@ -405,7 +409,7 @@ def process_data(data_path, processed_path, processing_args):
         data.edge_descriptor["distance"] = edge_weight
         data.edge_descriptor["mask"] = distance_matrix_mask
 
-        target = target_data[index][2:]
+        target = target_data[index][3:]
         y = torch.Tensor(np.array([target], dtype=np.float32))
         family = target_data[index][1]
         family_index = None
@@ -420,6 +424,10 @@ def process_data(data_path, processed_path, processing_args):
         elif family == "others":
             family_index = torch.tensor(4)
         data.family = F.one_hot(family_index, num_classes=5).float().reshape(1, -1)
+        if target_data[index][2] == "order":
+            data.if_order = torch.tensor([0, 1]).float().reshape(1, -1)
+        else:
+            data.if_order = torch.tensor([1, 0]).float().reshape(1, -1)
         data.y = y
 
         # create global feature
@@ -432,7 +440,6 @@ def process_data(data_path, processed_path, processing_args):
             break
         occupancy1 = []
         if disorder:
-            data.if_order = torch.tensor([0, 1]).float().reshape(1, -1)
             atom_index = []
             atom_index1 = []
             for site in pym_atoms:
@@ -470,8 +477,8 @@ def process_data(data_path, processed_path, processing_args):
                     replace_num += 1
                 else:
                     position_num += 1
-        data.disorder_feat = torch.Tensor([order_num / atom_num, replace_num / atom_num, position_num / atom_num]).reshape(1, -1)
-
+        data.disorder_feat = torch.Tensor(
+            [order_num / atom_num, replace_num / atom_num, position_num / atom_num]).reshape(1, -1)
 
         # 记录lattice和angle等其他晶胞的信息
         info = np.array([pym_atoms.lattice.a, pym_atoms.lattice.b, pym_atoms.lattice.c,
@@ -479,8 +486,8 @@ def process_data(data_path, processed_path, processing_args):
                          pym_atoms.volume, pym_atoms.density]).reshape(1, -1)
         info = torch.Tensor(info).float()
         # info = torch.cat([info, data.family, data.glob_feat], dim=1)
-        # info = torch.cat([info, data.family, data.if_order], dim=1) TODO:if_order 该怎么处理
-        info = torch.cat([info, data.family], dim=1)
+        info = torch.cat([info, data.family, data.disorder_feat], dim=1)
+        # info = torch.cat([info, data.family], dim=1)
         # info = data.family
         info = info.repeat(len(atom_index), 1)
         data.info = torch.Tensor(info).float()
