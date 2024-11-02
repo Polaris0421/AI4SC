@@ -53,7 +53,7 @@ def train(model, optimizer, loader, loss_method, rank, pt_model=None):
             if norm_emb:
                 atom_emb_pt = (atom_emb_pt - atom_emb_pt.mean()) / atom_emb_pt.std()
 
-            loss = getattr(F, loss_method)(output, data.y) + 1e-3*F.mse_loss(atom_emb_cg, atom_emb_pt)
+            loss = getattr(F, loss_method)(output, data.y) + 5e-4*F.mse_loss(atom_emb_cg, atom_emb_pt)
         else:
             output = model(data)
             loss = getattr(F, loss_method)(output, data.y)

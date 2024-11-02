@@ -486,6 +486,7 @@ def process_data(data_path, processed_path, processing_args):
         info = info.repeat(len(atom_index), 1)
         data.info = torch.Tensor(info).float()
 
+        data.structure_id = [[structure_id] * len(data.y)]
         # 打印处理进度
         if processing_args["verbose"] == "True" and (
                 (index + 1) % 500 == 0 or (index + 1) == len(target_data)
