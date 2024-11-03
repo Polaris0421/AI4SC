@@ -567,24 +567,24 @@ def train_regular(
             )
 
             ##Get train error in eval mode
-            train_error, train_out, train_metrics = evaluate(
+            dis_train_error, _, _ = evaluate(
                 train_loader, model, training_parameters["loss"], rank, out=True
             )
-            print("Disorder Train Error: {:.5f}".format(train_error))
+            print("Disorder Train Error: {:.5f}".format(dis_train_error))
 
             ##Get val error
             if val_loader != None:
-                val_error, val_out, val_metrics = evaluate(
+                dis_val_error, _, _ = evaluate(
                     val_loader, model, training_parameters["loss"], rank, out=True
                 )
-                print("Disorder Val Error: {:.5f}".format(val_error))
+                print("Disorder Val Error: {:.5f}".format(dis_val_error))
 
             ##Get test error
             if test_loader != None:
-                test_error, test_out, test_metrics = evaluate(
+                dis_test_error, _, _ = evaluate(
                     test_loader, model, training_parameters["loss"], rank, out=True
                 )
-                print("Disorder Test Error: {:.5f}".format(test_error))
+                print("Disorder Test Error: {:.5f}".format(dis_test_error))
 
 
 
