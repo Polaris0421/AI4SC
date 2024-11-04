@@ -26,7 +26,7 @@ class SUPER_CGCNN(torch.nn.Module):
             pool="global_mean_pool",
             pool_order="early",
             batch_norm="True",
-            if_info="True",
+            if_info=True,
             batch_track_stats="True",
             act="relu",
             dropout_rate=0.0,

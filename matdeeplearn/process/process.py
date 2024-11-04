@@ -9,7 +9,6 @@ import ase
 import glob
 from ase import io
 from scipy.stats import rankdata
-from scipy import interpolate
 import pandas as pd
 
 ##torch imports
@@ -75,6 +74,7 @@ def split_data_own(dataset,
                    aug='False',
                    repeat=0,
                    find_disorder=False,
+                   temperature=10,
                    ):
     train_file = os.path.join(data_path, 'train_Tc.csv')
     val_file = os.path.join(data_path, 'val_Tc.csv')
@@ -88,23 +88,26 @@ def split_data_own(dataset,
     train_cf = train_data.iloc[:, 0].values
     val_cf = val_data.iloc[:, 0].values
     test_cf = test_data.iloc[:, 0].values
-    whole_cf = whole_data.iloc[:, 0].values + '.cif'
+    try:
+        whole_cf = whole_data.iloc[:, 0].values + '.cif'
+    except:
+        whole_cf = np.char.add(whole_data.iloc[:, 0].values.astype(str), '.cif')
     train_index = np.where(np.isin(whole_cf, train_cf) == True)[0]
     val_index = [list(whole_cf).index(i) for i in val_cf]
     test_index = [list(whole_cf).index(i) for i in test_cf]
 
     if aug == 'True':
         whole_10 = whole_data.iloc[train_index]
-        train_index_10 = whole_10[whole_10.iloc[:, 3] > 10].index.tolist()
+        train_index_10 = whole_10[whole_10.iloc[:, 3] > temperature].index.tolist()
         train_index = train_index.tolist() + train_index_10 * repeat
 
     train_dataset = dataset[train_index]
     val_dataset = dataset[val_index]
     test_dataset = dataset[test_index]
     if find_disorder:
-        train_dataset = [data for data in train_dataset if data.if_order[0,0].item() == 1]
-        val_dataset = [data for data in val_dataset if data.if_order[0,0].item() == 1]
-        test_dataset = [data for data in test_dataset if data.if_order[0,0].item() == 1]
+        train_dataset = [data for data in train_dataset if data.if_order[0, 0].item() == 1]
+        val_dataset = [data for data in val_dataset if data.if_order[0, 0].item() == 1]
+        test_dataset = [data for data in test_dataset if data.if_order[0, 0].item() == 1]
         print('Find disorder,Train:', len(train_dataset), 'Val:', len(val_dataset), 'Test:', len(test_dataset))
     return train_dataset, val_dataset, test_dataset
 
@@ -367,18 +370,15 @@ def process_data(data_path, processed_path, processing_args):
         except:
             pym_atoms = ase.io.read(file_name)
             pym_atoms = AseAtomsAdaptor.get_structure(pym_atoms)
+        # 扩充单个原子的晶胞
+        if len(pym_atoms) == 1:
+            pym_atoms = pym_atoms * (2, 2, 2)
         data.pym_atoms = pym_atoms
 
         ### Pretrain ### 
         # 获取pretrain原子特征
         atom_fea = get_pretrain_data(pym_atoms)
         data.pretrain_data = atom_fea
-
-        ##Compile structure sizes (# of atoms) and elemental compositions
-        if index == 0:
-            length = [len(pym_atoms)]
-        else:
-            length.append(len(pym_atoms))
 
         ##Obtain distance matrix with ase
         distance_matrix = pym_atoms.distance_matrix
@@ -462,7 +462,7 @@ def process_data(data_path, processed_path, processing_args):
             glob_feat = create_global_feat(atom_index)
             occupancy1 = [1] * len(atom_index)
             atom_index1 = atom_index
-        data.glob_feat = torch.Tensor(glob_feat).float()
+        data.glob_feat = torch.Tensor(glob_feat).float().repeat(len(atom_index), 1)
 
         # 编码disorder程度，[order占比，替代无序占比，位置无序占比]
         atom_num = len(atom_index)
@@ -486,8 +486,8 @@ def process_data(data_path, processed_path, processing_args):
                          pym_atoms.volume, pym_atoms.density]).reshape(1, -1)
         info = torch.Tensor(info).float()
         # info = torch.cat([info, data.family, data.glob_feat], dim=1)
-        info = torch.cat([info, data.family, data.disorder_feat], dim=1)
-        # info = torch.cat([info, data.family], dim=1)
+        # info = torch.cat([info, data.family, data.disorder_feat], dim=1)
+        info = torch.cat([info, data.family], dim=1)
         # info = data.family
         info = info.repeat(len(atom_index), 1)
         data.info = torch.Tensor(info).float()
@@ -650,6 +650,8 @@ def Cleanup(data_list, entries):
 def GetRanges(dataset, descriptor_label):
     mean = 0.0
     std = 0.0
+    feature_max = 0.0
+    feature_min = 0.0
     for index in range(0, len(dataset)):
         if len(dataset[index].edge_descriptor[descriptor_label]) > 0:
             if index == 0:
