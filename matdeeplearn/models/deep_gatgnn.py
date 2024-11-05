@@ -39,7 +39,7 @@ class GATGNN_GIM1_globalATTENTION(torch.nn.Module):
 
         for i in range(self.fc_layers + 1):
             if i == 0:
-                lin    = torch.nn.Linear(dim+108, dim)
+                lin    = torch.nn.Linear(dim+124, dim)
                 self.global_mlp.append(lin)       
             else: 
                 if i != self.fc_layers :

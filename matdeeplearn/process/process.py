@@ -76,6 +76,8 @@ def split_data_own(dataset,
                    find_disorder=False,
                    temperature=10,
                    ):
+    if data_path.find('disorder') != -1:
+        temperature = 17
     train_file = os.path.join(data_path, 'train_Tc.csv')
     val_file = os.path.join(data_path, 'val_Tc.csv')
     test_file = os.path.join(data_path, 'test_Tc.csv')
@@ -486,11 +488,14 @@ def process_data(data_path, processed_path, processing_args):
                          pym_atoms.volume, pym_atoms.density]).reshape(1, -1)
         info = torch.Tensor(info).float()
         # info = torch.cat([info, data.family, data.glob_feat], dim=1)
-        # info = torch.cat([info, data.family, data.disorder_feat], dim=1)
-        info = torch.cat([info, data.family], dim=1)
+        if data_path.find('disorder') != -1:
+            info = torch.cat([info, data.family, data.disorder_feat], dim=1)
+        else:
+            info = torch.cat([info, data.family], dim=1)
         # info = data.family
         info = info.repeat(len(atom_index), 1)
         data.info = torch.Tensor(info).float()
+        data.glob_feat = torch.cat([data.glob_feat, data.info], dim=1)
 
         data.structure_id = [[structure_id] * len(data.y)]
         # 打印处理进度
