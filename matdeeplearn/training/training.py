@@ -8,6 +8,7 @@ import copy
 import numpy as np
 from functools import partial
 import platform
+import random
 
 ##Torch imports
 import torch.nn.functional as F
@@ -28,7 +29,14 @@ import matdeeplearn.training as training
 from matdeeplearn.models.utils import model_summary
 
 norm_emb = False
-
+def seed_everything(seed=1):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 ################################################################################
 #  Training functions
@@ -857,7 +865,8 @@ def train_repeat(
     for i in range(0, job_parameters["repeat_trials"]):
 
         ##new seed each time for different data split
-        job_parameters["seed"] = np.random.randint(1, 1e6)
+        job_parameters["seed"]= i+1
+        seed_everything(job_parameters["seed"])
 
         if i == 0:
             model_parameters["print_model"] = True
@@ -1092,93 +1101,6 @@ def tune_trainable(config, checkpoint_dir=None, data_path=None):
             ##Somehow tune does not recognize value without *1
             tune.report(loss=val_error.cpu().numpy() * 1)
             # tune.report(loss=val_error)
-
-
-# Tune setup
-def tune_setup(
-        hyper_args,
-        job_parameters,
-        processing_parameters,
-        training_parameters,
-        model_parameters,
-):
-    # imports
-    import ray
-    from ray import tune
-    from ray.tune.schedulers import ASHAScheduler
-    from ray.tune.suggest.hyperopt import HyperOptSearch
-    from ray.tune.suggest import ConcurrencyLimiter
-    from ray.tune import CLIReporter
-
-    ray.init()
-    data_path = "_"
-    local_dir = "ray_results"
-    # currently no support for paralleization per trial
-    gpus_per_trial = 1
-
-    ##Set up search algo
-    search_algo = HyperOptSearch(metric="loss", mode="min", n_initial_points=5)
-    search_algo = ConcurrencyLimiter(
-        search_algo, max_concurrent=job_parameters["hyper_concurrency"]
-    )
-
-    ##Resume run
-    if os.path.exists(local_dir + "/" + job_parameters["job_name"]) and os.path.isdir(
-            local_dir + "/" + job_parameters["job_name"]
-    ):
-        if job_parameters["hyper_resume"] == "False":
-            resume = False
-        elif job_parameters["hyper_resume"] == "True":
-            resume = True
-        # else:
-        #    resume = "PROMPT"
-    else:
-        resume = False
-
-    ##Print out hyperparameters
-    parameter_columns = [
-        element for element in hyper_args.keys() if element not in "global"
-    ]
-    parameter_columns = ["hyper_args"]
-    reporter = CLIReporter(
-        max_progress_rows=20, max_error_rows=5, parameter_columns=parameter_columns
-    )
-
-    ##Run tune
-    tune_result = tune.run(
-        partial(tune_trainable, data_path=data_path),
-        resources_per_trial={"cpu": 1, "gpu": gpus_per_trial},
-        config={
-            "hyper_args": hyper_args,
-            "job_parameters": job_parameters,
-            "processing_parameters": processing_parameters,
-            "training_parameters": training_parameters,
-            "model_parameters": model_parameters,
-        },
-        num_samples=job_parameters["hyper_trials"],
-        # scheduler=scheduler,
-        search_alg=search_algo,
-        local_dir=local_dir,
-        progress_reporter=reporter,
-        verbose=job_parameters["hyper_verbosity"],
-        resume=resume,
-        log_to_file=True,
-        name=job_parameters["job_name"],
-        max_failures=4,
-        raise_on_failed_trial=False,
-        # keep_checkpoints_num=job_parameters["hyper_keep_checkpoints_num"],
-        # checkpoint_score_attr="min-loss",
-        stop={
-            "training_iteration": model_parameters["epochs"]
-                                  // job_parameters["hyper_iter"]
-        },
-    )
-
-    ##Get best trial
-    best_trial = tune_result.get_best_trial("loss", "min", "all")
-    # best_trial = tune_result.get_best_trial("loss", "min", "last")
-
-    return best_trial
 
 
 ###Simple ensemble using averages
