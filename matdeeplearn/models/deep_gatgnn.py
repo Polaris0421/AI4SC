@@ -40,12 +40,15 @@ class GATGNN_GIM1_globalATTENTION(torch.nn.Module):
         for i in range(self.fc_layers + 1):
             if i == 0:
                 lin    = torch.nn.Linear(dim+124, dim)
+                nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                 self.global_mlp.append(lin)       
             else: 
                 if i != self.fc_layers :
                     lin = torch.nn.Linear(dim, dim)
+                    nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                 else:
                     lin = torch.nn.Linear(dim, 1)
+                    nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                 self.global_mlp.append(lin)   
 
             if self.batch_norm == "True":
@@ -197,13 +200,17 @@ class DEEP_GATGNN(torch.nn.Module):
             for i in range(pre_fc_count):
                 if i   == 0:
                     lin_N = torch.nn.Linear(data.num_features, dim1)
+                    nn.init.kaiming_normal_(lin_N.weight, nonlinearity='relu') ## Kaiming Initial
                     self.pre_lin_list_N.append(lin_N)
                     lin_E = torch.nn.Linear(data.num_edge_features, dim1)
+                    nn.init.kaiming_normal_(lin_E.weight, nonlinearity='relu') ## Kaiming Initial
                     self.pre_lin_list_E.append(lin_E)                    
                 else:
                     lin_N = torch.nn.Linear(dim1, dim1)
+                    nn.init.kaiming_normal_(lin_N.weight, nonlinearity='relu') ## Kaiming Initial
                     self.pre_lin_list_N.append(lin_N)
                     lin_E = torch.nn.Linear(dim1, dim1)
+                    nn.init.kaiming_normal_(lin_E.weight, nonlinearity='relu') ## Kaiming Initial
                     self.pre_lin_list_E.append(lin_E)    
 
         elif pre_fc_count      == 0:
@@ -231,20 +238,26 @@ class DEEP_GATGNN(torch.nn.Module):
                     ##Set2set pooling has doubled dimension
                     if self.pool_order == "early" and self.pool == "set2set":
                         lin = torch.nn.Linear(post_fc_dim * 2, dim2)
+                        nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                     else:
                         lin = torch.nn.Linear(post_fc_dim, dim2)
+                        nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                     self.post_lin_list.append(lin)
                 else:
                     lin = torch.nn.Linear(dim2, dim2)
+                    nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                     self.post_lin_list.append(lin)
             self.lin_out = torch.nn.Linear(dim2, output_dim)
+            nn.init.kaiming_normal_(self.lin_out.weight, nonlinearity='relu') ## Kaiming Initial
 
         elif post_fc_count == 0:
             self.post_lin_list = torch.nn.ModuleList()
             if self.pool_order == "early" and self.pool == "set2set":
                 self.lin_out = torch.nn.Linear(post_fc_dim*2, output_dim)
+                nn.init.kaiming_normal_(self.lin_out.weight, nonlinearity='relu') ## Kaiming Initial
             else:
                 self.lin_out = torch.nn.Linear(post_fc_dim, output_dim)   
+                nn.init.kaiming_normal_(self.lin_out.weight, nonlinearity='relu') ## Kaiming Initial
 
         ##Set up set2set pooling (if used)
         ##Should processing_setps be a hypereparameter?
@@ -254,6 +267,7 @@ class DEEP_GATGNN(torch.nn.Module):
             self.set2set = Set2Set(output_dim, processing_steps=3, num_layers=1)
             # workaround for doubled dimension by set2set; if late pooling not reccomended to use set2set
             self.lin_out_2 = torch.nn.Linear(output_dim * 2, output_dim)
+            nn.init.kaiming_normal_(self.lin_out_2.weight, nonlinearity='relu') ## Kaiming Initial
 
     def forward(self, data):
 

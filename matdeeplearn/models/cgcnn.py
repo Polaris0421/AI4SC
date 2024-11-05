@@ -1,6 +1,7 @@
 import torch
 from torch import Tensor
 import torch.nn.functional as F
+import torch.nn as nn
 from torch.nn import Sequential, Linear, BatchNorm1d
 import torch_geometric
 from torch_geometric.nn import (
@@ -67,9 +68,11 @@ class CGCNN(torch.nn.Module):
             for i in range(pre_fc_count):
                 if i == 0:
                     lin = torch.nn.Linear(data.num_features, dim1)
+                    nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                     self.pre_lin_list.append(lin)
                 else:
                     lin = torch.nn.Linear(dim1, dim1)
+                    nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                     self.pre_lin_list.append(lin)
         elif pre_fc_count == 0:
             self.pre_lin_list = torch.nn.ModuleList()
@@ -95,20 +98,26 @@ class CGCNN(torch.nn.Module):
                     ##Set2set pooling has doubled dimension
                     if self.pool_order == "early" and self.pool == "set2set":
                         lin = torch.nn.Linear(post_fc_dim * 2, dim2)
+                        nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                     else:
                         lin = torch.nn.Linear(post_fc_dim * 2, dim2)
+                        nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                     self.post_lin_list.append(lin)
                 else:
                     lin = torch.nn.Linear(dim2, dim2)
+                    nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
                     self.post_lin_list.append(lin)
             self.lin_out = torch.nn.Linear(dim2, output_dim)
+            nn.init.kaiming_normal_(self.lin_out.weight, nonlinearity='relu') ## Kaiming Initial
 
         elif post_fc_count == 0:
             self.post_lin_list = torch.nn.ModuleList()
             if self.pool_order == "early" and self.pool == "set2set":
                 self.lin_out = torch.nn.Linear(post_fc_dim * 2, output_dim)
+                nn.init.kaiming_normal_(self.lin_out.weight, nonlinearity='relu') ## Kaiming Initial
             else:
                 self.lin_out = torch.nn.Linear(post_fc_dim, output_dim)
+                nn.init.kaiming_normal_(self.lin_out.weight, nonlinearity='relu') ## Kaiming Initial
         ##Set up set2set pooling (if used)
         ##Should processing_setps be a hypereparameter?
         if self.pool_order == "early" and self.pool == "set2set":
@@ -117,24 +126,31 @@ class CGCNN(torch.nn.Module):
             self.set2set = Set2Set(output_dim, processing_steps=3, num_layers=1)
             # workaround for doubled dimension by set2set; if late pooling not reccomended to use set2set
             self.lin_out_2 = torch.nn.Linear(output_dim * 2, output_dim)
+            nn.init.kaiming_normal_(self.lin_out_2.weight, nonlinearity='relu') ## Kaiming Initial
 
         # set up data.info processing
         self.info_list = torch.nn.ModuleList()
         print("using info layers:", info_fc_count)
         if info_fc_count == 1:
             lin = torch.nn.Linear(data.info.shape[1], post_fc_dim)
+            nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
             self.info_list.append(lin)
         if info_fc_count == 2:
             lin = torch.nn.Linear(data.info.shape[1], post_fc_dim * 2)
+            nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
             self.info_list.append(lin)
             lin = torch.nn.Linear(post_fc_dim * 2, post_fc_dim)
+            nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
             self.info_list.append(lin)
         if info_fc_count == 3:
             lin = torch.nn.Linear(data.info.shape[1], post_fc_dim * 2)
+            nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
             self.info_list.append(lin)
             lin = torch.nn.Linear(post_fc_dim * 2, post_fc_dim)
+            nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
             self.info_list.append(lin)
             lin = torch.nn.Linear(post_fc_dim, post_fc_dim)
+            nn.init.kaiming_normal_(lin.weight, nonlinearity='relu') ## Kaiming Initial
             self.info_list.append(lin)
 
     def forward(self, data, pt=False):
