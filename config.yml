@@ -27,11 +27,12 @@ Job:
         reprocess: "False"    
         model: CGCNN_demo   
         model_path: "my_model.pth"
-        write_output: "False"
+        write_output: "True"
+        save_model: "True"
         parallel: "False"
         ###specific options
         #number of repeat trials
-        repeat_trials: 5
+        repeat_trials: 3
 
     
 Processing:

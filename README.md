@@ -1,7 +1,12 @@
 # Bi-SPGCN
-本仓库为CG2407题目解决方案[Bi-SPGCN](#bi-spgcn)（Bi-level Superconductivity Prediction Graph Convolutional Network）
+本仓库为2024第二届大湾区AI For Science科技竞赛CG2407题目解决方案[Bi-SPGCN](#bi-spgcn)（Bi-level Superconductivity Prediction Graph Convolutional Network）
 
-我们利用图神经网络以实现基于晶体结构信息的超导转变温度的预测，从有序结构、无序结构两方面分别构建神经网络模型，并针对赛题数据特殊性，引入迁移学习方法和处理样本不均衡问题等相关技术。
+本报告利用图神经网络以实现基于晶体结构信息的超导转变温度的预测，
+在有序结构数据上提出了Bi-SPGCN(Bi-level Superconductivity Prediction Graph 
+Convolutional Network），在无序结构数据上使用改进的DeeperGATGNN (Deep Global 
+Attention Graph Neural Network)。我们使用考虑晶体周期特殊性的图特征嵌入方法，并针
+对赛题数据特殊性，引入迁移学习、样本均衡处理等相关技术。最后，基于共形推断方法，我们给
+出了模型预测结果的置信度估计。
 
 最终实验结果显示，本报告提出的模型框架和训练方法在R2和MAE准则下均优于现有模型（[BSGNN](https://github.com/GLinustb/BSGNN)）。
 
@@ -9,7 +14,8 @@
 # 一、代码框架参考
 1. 本仓库为基于[DeepGATGNN](https://github.com/usccolumbia/deeperGATGNN)与[MatDeepLearn](https://github.com/Fung-Lab/MatDeepLearn)框架所构建；
 2. 环境版本要求请参考[requirement.txt](./requirements.txt)文件
-3. 置信度计算我们使用R语言，相关计算、绘图代码与实例数据已放置于[Confidence](./Confidence/)文件夹中
+3. 预训练好的模型已存放于[./results](./results/)目录下
+4. 置信度计算我们使用R语言，相关计算、绘图代码与实例数据已放置于[Confidence](./Confidence/)文件夹中
 
 
 
@@ -24,7 +30,7 @@ Bi-SPGCN主要由晶胞特征提取与全局信息提取两部分组成，晶胞
 ### 1）部分重要参数介绍
 - data_path 数据存放路径
 - run_mode 运行模式
-    - Repeat为重复试验模式
+    - Repeat为重复试验模式(本仓库没有单次实验的选项，如有需要可在config.yml中设置次数为1）
     - Predict为预测模式
 - model 使用的模型
     - BiSPGCN

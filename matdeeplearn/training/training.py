@@ -310,7 +310,7 @@ def train_regular(
         training_parameters=None,
         model_parameters=None,
         pt_model=None,
-        seed=0,
+        seed=None,
 ):
     ##DDP
     # ddp_setup(rank, world_size)
@@ -422,41 +422,29 @@ def train_regular(
 
         ##Save model
         if job_parameters["save_model"] == "True":
-
-            if rank not in ("cpu", "cuda"):
-                torch.save(
-                    {
-                        "model_state_dict": model.state_dict(),
-                        "optimizer_state_dict": optimizer.state_dict(),
-                        "scheduler_state_dict": scheduler.state_dict(),
-                        "full_model": model,
-                    },
-                    job_parameters["model_path"],
-                )
-            else:
-                torch.save(
-                    {
-                        "model_state_dict": model.state_dict(),
-                        "optimizer_state_dict": optimizer.state_dict(),
-                        "scheduler_state_dict": scheduler.state_dict(),
-                        "full_model": model,
-                    },
-                    job_parameters["model_path"],
-                )
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "scheduler_state_dict": scheduler.state_dict(),
+                    "full_model": model,
+                },
+                job_parameters["model_path"],
+            )
 
         ##Write outputs
         if job_parameters["write_output"] == "True":
 
             write_results(
-                train_out, str(job_parameters["job_name"]) + "_train_outputs.csv"
+                train_out, str(job_parameters["seed"]) + "_train_outputs.csv"
             )
             if val_loader != None:
                 write_results(
-                    val_out, str(job_parameters["job_name"]) + "_val_outputs.csv"
+                    val_out, str(job_parameters["seed"]) + "_val_outputs.csv"
                 )
             if test_loader != None:
                 write_results(
-                    test_out, str(job_parameters["job_name"]) + "_test_outputs.csv"
+                    test_out, str(job_parameters["seed"]) + "_test_outputs.csv"
                 )
 
         if rank not in ("cpu", "cuda"):
@@ -531,10 +519,7 @@ def train_repeat(
 
     job_name = job_parameters["job_name"]
     model_path = job_parameters["model_path"]
-    find_disorder = model_parameters["find_disorder"]
     job_parameters["write_error"] = "True"
-    job_parameters["load_model"] = "False"
-    job_parameters["save_model"] = "False"
 
     ### 设定预训练模型 ###
     if model_parameters['pt'] == 'True':
@@ -562,7 +547,7 @@ def train_repeat(
             model_parameters["print_model"] = False
 
         job_parameters["job_name"] = job_name + str(i)
-        job_parameters["model_path"] = str(i) + "_" + model_path
+        job_parameters["model_path"] = str(i+1) + "_" + model_path
 
         if world_size == 0:
             print("Running on CPU - this will be slow")

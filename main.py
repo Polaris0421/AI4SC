@@ -271,9 +271,6 @@ def main():
     else:
         config["Models"] = config["Models"].get(config["Job"]["model"].strip("'"))
 
-    if config["Job"]["seed"] == 0:
-        config["Job"]["seed"] = np.random.randint(1, 1e6)
-
     ## 参数集存储
     print("Settings: ")
     pprint.pprint(config)
