@@ -2,10 +2,8 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import argparse
 import time
-import csv
 import sys
 import json
-import random
 import numpy as np
 import pprint
 import yaml
@@ -13,12 +11,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import torch
-import torch.multiprocessing as mp
-
-import ray
-from ray import tune
-
-from matdeeplearn import models, process, training
+from matdeeplearn import process, training
 
 ################################################################################
 #
@@ -275,160 +268,47 @@ def main():
 
     if run_mode == "Predict":
         config["Models"] = {}
-    elif run_mode == "Ensemble":
-        config["Job"]["ensemble_list"] = config["Job"]["ensemble_list"].split(",")
-        models_temp = config["Models"]
-        config["Models"] = {}
-        for i in range(0, len(config["Job"]["ensemble_list"])):
-            config["Models"][config["Job"]["ensemble_list"][i]] = models_temp.get(
-                config["Job"]["ensemble_list"][i]
-            )
     else:
         config["Models"] = config["Models"].get(config["Job"]["model"].strip("'"))
 
     if config["Job"]["seed"] == 0:
         config["Job"]["seed"] = np.random.randint(1, 1e6)
 
-    ##Print and write settings for job
+    ## 参数集存储
     print("Settings: ")
     pprint.pprint(config)
     with open(str(config["Job"]["job_name"]) + "_settings.txt", "w") as log_file:
         pprint.pprint(config, log_file)
 
     ################################################################################
-    #  Begin processing
+    #  导入数据集
     ################################################################################
+    process_start_time = time.time()
 
-    if run_mode != "Hyperparameter":
+    dataset = process.get_dataset(
+        config["Processing"]["data_path"],
+        config["Training"]["target_index"],
+        config["Job"]["reprocess"],
+        config["Processing"],
+    )
 
-        process_start_time = time.time()
+    print("Dataset used:", dataset)
+    print(dataset[0])
 
-        dataset = process.get_dataset(
-            config["Processing"]["data_path"],
-            config["Training"]["target_index"],
-            config["Job"]["reprocess"],
-            config["Processing"],
-        )
-
-        print("Dataset used:", dataset)
-        print(dataset[0])
-
-        print("--- %s seconds for processing ---" % (time.time() - process_start_time))
+    print("--- %s seconds for processing ---" % (time.time() - process_start_time))
 
     ################################################################################
-    #  Training begins
+    #  模型训练
     ################################################################################
-    
-    ##Regular training
-    if run_mode == "Training":
-
-        print("Starting regular training")
-        print(
-            "running for "
-            + str(config["Models"]["epochs"])
-            + " epochs"
-            + " on "
-            + str(config["Job"]["model"])
-            + " model"
-        )
-        world_size = torch.cuda.device_count()
-        if world_size == 0:
-            print("Running on CPU - this will be slow")
-            training.train_regular(
-                "cpu",
-                world_size,
-                config["Processing"]["data_path"],
-                config["Job"],
-                config["Training"],
-                config["Models"],
-            )
-
-        elif world_size > 0:
-            if config["Job"]["parallel"] == "True":
-                print("Running on", world_size, "GPUs")
-                mp.spawn(
-                    training.train_regular,
-                    args=(
-                        world_size,
-                        config["Processing"]["data_path"],
-                        config["Job"],
-                        config["Training"],
-                        config["Models"],
-                    ),
-                    nprocs=world_size,
-                    join=True,
-                )
-            if config["Job"]["parallel"] == "False":
-                print("Running on one GPU")
-                training.train_regular(
-                    "cuda",
-                    world_size,
-                    config["Processing"]["data_path"],
-                    config["Job"],
-                    config["Training"],
-                    config["Models"],
-                )
-
-    ##Predicting from a trained model
-    elif run_mode == "Predict":
-
+    ## 预测模式
+    if run_mode == "Predict":
         print("Starting prediction from trained model")
         train_error = training.predict(
             dataset, config["Training"]["loss"], config["Job"]
         )
         print("Test Error: {:.5f}".format(train_error))
 
-    ##Running n fold cross validation
-    elif run_mode == "CV":
-
-        print("Starting cross validation")
-        print(
-            "running for "
-            + str(config["Models"]["epochs"])
-            + " epochs"
-            + " on "
-            + str(config["Job"]["model"])
-            + " model"
-        )
-        world_size = torch.cuda.device_count()
-        if world_size == 0:
-            print("Running on CPU - this will be slow")
-            training.train_CV(
-                "cpu",
-                world_size,
-                config["Processing"]["data_path"],
-                config["Job"],
-                config["Training"],
-                config["Models"],
-            )
-
-        elif world_size > 0:
-            if config["Job"]["parallel"] == "True":
-                print("Running on", world_size, "GPUs")
-                mp.spawn(
-                    training.train_CV,
-                    args=(
-                        world_size,
-                        config["Processing"]["data_path"],
-                        config["Job"],
-                        config["Training"],
-                        config["Models"],
-                    ),
-                    nprocs=world_size,
-                    join=True,
-                )
-            if config["Job"]["parallel"] == "False":
-                print("Running on one GPU")
-                training.train_CV(
-                    "cuda",
-                    world_size,
-                    config["Processing"]["data_path"],
-                    config["Job"],
-                    config["Training"],
-                    config["Models"],
-                )
-
-    ##Running repeated trials
+    ## 重复训练模式
     elif run_mode == "Repeat":
         print("Repeat training for " + str(config["Job"]["repeat_trials"]) + " trials")
         training.train_repeat(
@@ -437,203 +317,11 @@ def main():
             config["Training"],
             config["Models"],
         )
-
-    ##Hyperparameter optimization
-    elif run_mode == "Hyperparameter":
-
-        print("Starting hyperparameter optimization")
-        print(
-            "running for "
-            + str(config["Models"]["epochs"])
-            + " epochs"
-            + " on "
-            + str(config["Job"]["model"])
-            + " model"
-        )
-
-        ##Reprocess here if not reprocessing between trials
-        if config["Job"]["reprocess"] == "False":
-            process_start_time = time.time()
-
-            dataset = process.get_dataset(
-                config["Processing"]["data_path"],
-                config["Training"]["target_index"],
-                config["Job"]["reprocess"],
-                config["Processing"],
-            )
-
-            print("Dataset used:", dataset)
-            print(dataset[0])
-
-            if config["Training"]["target_index"] == -1:
-                config["Models"]["output_dim"] = len(dataset[0].y[0])
-            # print(len(dataset[0].y))
-
-            print(
-                "--- %s seconds for processing ---" % (time.time() - process_start_time)
-            )
-
-        ##Set up search space for each model; these can subject to change
-        hyper_args = {}
-        dim1 = [x * 10 for x in range(1, 20)]
-        dim2 = [x * 10 for x in range(1, 20)]
-        dim3 = [x * 10 for x in range(1, 20)]
-        batch = [x * 10 for x in range(1, 20)]
-        hyper_args["SchNet_demo"] = {
-            "dim1": tune.choice(dim1),
-            "dim2": tune.choice(dim2),
-            "dim3": tune.choice(dim3),
-            "gnn_count": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            "post_fc_count": tune.choice([1, 2, 3, 4, 5, 6]),
-            "pool": tune.choice(
-                ["global_mean_pool", "global_add_pool", "global_max_pool", "set2set"]
-            ),
-            "lr": tune.loguniform(1e-4, 0.05),
-            "batch_size": tune.choice(batch),
-            "cutoff": config["Processing"]["graph_max_radius"],
-        }
-        hyper_args["CGCNN_demo"] = {
-            "dim1": tune.choice(dim1),
-            "dim2": tune.choice(dim2),
-            "gnn_count": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            "post_fc_count": tune.choice([1, 2, 3, 4, 5, 6]),
-            "pool": tune.choice(
-                ["global_mean_pool", "global_add_pool", "global_max_pool", "set2set"]
-            ),
-            "lr": tune.loguniform(1e-4, 0.05),
-            "batch_size": tune.choice(batch),
-        }
-        hyper_args["DEEP_GATGNN_demo"] = {
-            "dim1": tune.choice(dim1),
-            "dim2": tune.choice(dim2),
-            "gnn_count": tune.choice([10, 15, 20, 25, 30, 35, 40, 45, 50]),
-            "post_fc_count": tune.choice([1, 2, 3, 4, 5, 6]),
-            "pool": tune.choice(
-                ["global_mean_pool", "global_add_pool", "global_max_pool", "set2set"]
-            ),
-            "lr": tune.loguniform(1e-4, 0.05),
-            "batch_size": tune.choice(batch),
-        }
-        hyper_args["MPNN_demo"] = {
-            "dim1": tune.choice(dim1),
-            "dim2": tune.choice(dim2),
-            "dim3": tune.choice(dim3),
-            "gnn_count": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            "post_fc_count": tune.choice([1, 2, 3, 4, 5, 6]),
-            "pool": tune.choice(
-                ["global_mean_pool", "global_add_pool", "global_max_pool", "set2set"]
-            ),
-            "lr": tune.loguniform(1e-4, 0.05),
-            "batch_size": tune.choice(batch),
-        }
-        hyper_args["MEGNet_demo"] = {
-            "dim1": tune.choice(dim1),
-            "dim2": tune.choice(dim2),
-            "dim3": tune.choice(dim3),
-            "gnn_count": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            "post_fc_count": tune.choice([1, 2, 3, 4, 5, 6]),
-            "pool": tune.choice(["global_mean_pool", "global_add_pool", "global_max_pool", "set2set"]),
-            "lr": tune.loguniform(1e-4, 0.05),
-            "batch_size": tune.choice(batch),
-        }
-        hyper_args["GCN_demo"] = {
-            "dim1": tune.choice(dim1),
-            "dim2": tune.choice(dim2),
-            "gnn_count": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            "post_fc_count": tune.choice([1, 2, 3, 4, 5, 6]),
-            "pool": tune.choice(
-                ["global_mean_pool", "global_add_pool", "global_max_pool", "set2set"]
-            ),
-            "lr": tune.loguniform(1e-4, 0.05),
-            "batch_size": tune.choice(batch),
-        }
-        hyper_args["SOAP_demo"] = {
-            "dim1": tune.choice(dim1),
-            "post_fc_count": tune.choice([1, 2, 3, 4, 5, 6]),
-            "lr": tune.loguniform(1e-4, 0.05),
-            "batch_size": tune.choice(batch),
-            "nmax": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            "lmax": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            "sigma": tune.uniform(0.1, 2.0),
-            "rcut": tune.uniform(1.0, 10.0),
-        }
-        hyper_args["SM_demo"] = {
-            "dim1": tune.choice(dim1),
-            "post_fc_count": tune.choice([1, 2, 3, 4, 5, 6]),
-            "lr": tune.loguniform(1e-4, 0.05),
-            "batch_size": tune.choice(batch),
-        }
-
-        ##Run tune setup and trials
-        best_trial = training.tune_setup(
-            hyper_args[config["Job"]["model"]],
-            config["Job"],
-            config["Processing"],
-            config["Training"],
-            config["Models"],
-        )
-
-        ##Write hyperparameters to file
-        hyperparameters = best_trial.config["hyper_args"]
-        hyperparameters = {
-            k: round(v, 6) if isinstance(v, float) else v
-            for k, v in hyperparameters.items()
-        }
-        with open(
-            config["Job"]["job_name"] + "_optimized_hyperparameters.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(hyperparameters, f, ensure_ascii=False, indent=4)
-
-        ##Print best hyperparameters
-        print("Best trial hyper_args: {}".format(hyperparameters))
-        print(
-            "Best trial final validation error: {:.5f}".format(
-                best_trial.last_result["loss"]
-            )
-        )
-
-    ##Ensemble mode using simple averages
-    elif run_mode == "Ensemble":
-
-        print("Starting simple (average) ensemble training")
-        print("Ensemble list: ", config["Job"]["ensemble_list"])
-        training.train_ensemble(
-            config["Processing"]["data_path"],
-            config["Job"],
-            config["Training"],
-            config["Models"],
-        )
-
-    ##Analysis mode
-    ##NOTE: this only works for "early" pooling option, because it assumes the graph-level features are plotted, not the node-level ones
-    elif run_mode == "Analysis":
-        print("Starting analysis of graph features")
-
-        ##dict for the tsne settings; please refer to sklearn.manifold.TSNE for information on the function arguments
-        tsne_args = {
-            "perplexity": 50,
-            "early_exaggeration": 12,
-            "learning_rate": 300,
-            "n_iter": 5000,
-            "verbose": 1,
-            "random_state": 42,
-        }
-        ##this saves the tsne output as a csv file with: structure id, y, tsne 1, tsne 2 as the columns
-        ##Currently only works if there is one y column in targets.csv
-        training.analysis(
-            dataset,
-            config["Job"]["model_path"],
-            tsne_args,
-        )
-
     else:
         print("No valid mode selected, try again")
 
     print("--- %s total seconds elapsed ---" % (time.time() - start_time))
     print("--- %s total hours elapsed ---" % ((time.time() - start_time)/3600))
-
 
 if __name__ == "__main__":
     main()

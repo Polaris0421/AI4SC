@@ -27,48 +27,6 @@ from pymatgen.io.cif import CifParser
 ################################################################################
 
 ##basic train, val, test split
-def split_data(
-        dataset,
-        train_ratio,
-        val_ratio,
-        test_ratio,
-        seed=np.random.randint(1, 1e6),
-        save=False,
-):
-    dataset_size = len(dataset)
-    if (train_ratio + val_ratio + test_ratio) <= 1:
-        train_length = int(dataset_size * train_ratio)
-        val_length = int(dataset_size * val_ratio)
-        test_length = int(dataset_size * test_ratio)
-        unused_length = dataset_size - train_length - val_length - test_length
-        (
-            train_dataset,
-            val_dataset,
-            test_dataset,
-            unused_dataset,
-        ) = torch.utils.data.random_split(
-            dataset,
-            [train_length, val_length, test_length, unused_length],
-            generator=torch.Generator().manual_seed(seed),
-        )
-        print(
-            "train length:",
-            train_length,
-            "val length:",
-            val_length,
-            "test length:",
-            test_length,
-            "unused length:",
-            unused_length,
-            "seed :",
-            seed,
-        )
-        return train_dataset, val_dataset, test_dataset
-    else:
-        print("invalid ratios")
-
-
-##Use own split
 def split_data_own(dataset,
                    data_path,
                    aug='False',
@@ -114,25 +72,11 @@ def split_data_own(dataset,
     return train_dataset, val_dataset, test_dataset
 
 
-##Basic CV split
-def split_data_CV(dataset, num_folds=5, seed=np.random.randint(1, 1e6), save=False):
-    dataset_size = len(dataset)
-    fold_length = int(dataset_size / num_folds)
-    unused_length = dataset_size - fold_length * num_folds
-    folds = [fold_length for i in range(num_folds)]
-    folds.append(unused_length)
-    cv_dataset = torch.utils.data.random_split(
-        dataset, folds, generator=torch.Generator().manual_seed(seed)
-    )
-    print("fold length :", fold_length, "unused length:", unused_length, "seed", seed)
-    return cv_dataset[0:num_folds]
-
-
 ################################################################################
-# Pytorch datasets
+# 数据集处理
 ################################################################################
 
-##Fetch dataset; processes the raw data if specified
+## 获取预处理后数据集
 def get_dataset(data_path, target_index, reprocess="False", processing_args=None):
     if processing_args == None:
         processed_path = "processed"
@@ -146,6 +90,7 @@ def get_dataset(data_path, target_index, reprocess="False", processing_args=None
         print("Data not found in:", data_path)
         sys.exit()
 
+    ## reprocess数据集
     if reprocess == "True":
         os.system("rm -rf " + os.path.join(data_path, processed_path))
         process_data(data_path, processed_path, processing_args)
@@ -156,30 +101,17 @@ def get_dataset(data_path, target_index, reprocess="False", processing_args=None
             processed_path,
             transforms,
         )
-    elif os.path.exists(os.path.join(data_path, processed_path, "data0.pt")) == True:
-        dataset = StructureDataset_large(
+    else: # 检查数据集是否存在，若不存在则进行reprocess
+        process_data(data_path, processed_path, processing_args)
+        dataset = StructureDataset(
             data_path,
             processed_path,
             transforms,
         )
-    else:
-        process_data(data_path, processed_path, processing_args)
-        if os.path.exists(os.path.join(data_path, processed_path, "data.pt")) == True:
-            dataset = StructureDataset(
-                data_path,
-                processed_path,
-                transforms,
-            )
-        elif os.path.exists(os.path.join(data_path, processed_path, "data0.pt")) == True:
-            dataset = StructureDataset_large(
-                data_path,
-                processed_path,
-                transforms,
-            )
     return dataset
 
 
-##Dataset class from pytorch/pytorch geometric; inmemory case
+## torch_geometric fornat 数据集
 class StructureDataset(InMemoryDataset):
     def __init__(
             self, data_path, processed_path="processed", transform=None, pre_transform=None
@@ -203,44 +135,8 @@ class StructureDataset(InMemoryDataset):
         return file_names
 
 
-##Dataset class from pytorch/pytorch geometric
-class StructureDataset_large(Dataset):
-    def __init__(
-            self, data_path, processed_path="processed", transform=None, pre_transform=None
-    ):
-        self.data_path = data_path
-        self.processed_path = processed_path
-        super(StructureDataset_large, self).__init__(
-            data_path, transform, pre_transform
-        )
-
-    @property
-    def raw_file_names(self):
-        return []
-
-    @property
-    def processed_dir(self):
-        return os.path.join(self.data_path, self.processed_path)
-
-    @property
-    def processed_file_names(self):
-        # file_names = ["data.pt"]
-        file_names = []
-        for file_name in glob.glob(self.processed_dir + "/data*.pt"):
-            file_names.append(os.path.basename(file_name))
-        # print(file_names)
-        return file_names
-
-    def len(self):
-        return len(self.processed_file_names)
-
-    def get(self, idx):
-        data = torch.load(os.path.join(self.processed_dir, "data_{}.pt".format(idx)))
-        return data
-
-
 ################################################################################
-# Pretrain_data
+# Pretrain原子特征构建
 ################################################################################
 class AtomInitializer(object):
     def __init__(self, atom_types):
@@ -266,7 +162,6 @@ class AtomInitializer(object):
                                 self._embedding.items()}
         return self._decodedict[idx]
 
-
 class AtomCustomJSONInitializer(AtomInitializer):
     def __init__(self, elem_embedding_file):
         with open(elem_embedding_file) as f:
@@ -277,7 +172,6 @@ class AtomCustomJSONInitializer(AtomInitializer):
         super(AtomCustomJSONInitializer, self).__init__(atom_types)
         for key, value in elem_embedding.items():
             self._embedding[key] = np.array(value, dtype=float)
-
 
 def get_pretrain_data(crystal):
     atom_init_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -300,7 +194,7 @@ def get_pretrain_data(crystal):
 ################################################################################
 
 ################################################################################
-#  Processing
+#  特征构建
 ################################################################################
 def create_global_feat(atoms_index_arr):
     comp = np.zeros(108)
@@ -313,39 +207,23 @@ def create_global_feat(atoms_index_arr):
 def process_data(data_path, processed_path, processing_args):
     ##Begin processing data
     print("Processing data to: " + os.path.join(data_path, processed_path))
-    assert os.path.exists(data_path), "Data path not found in " + data_path
+    assert os.path.exists(data_path), "Data path not found in " + data_path # 检查数据路径
 
-    ##Load dictionary
-    if processing_args["dictionary_source"] != "generated":
-        if processing_args["dictionary_source"] == "default":
-            print("Using default dictionary.")
-            atom_dictionary = get_dictionary(
-                os.path.join(
-                    os.path.dirname(os.path.realpath(__file__)),
-                    "dictionary_default.json",
-                )
-            )
-        elif processing_args["dictionary_source"] == "blank":
-            print(
-                "Using blank dictionary. Warning: only do this if you know what you are doing"
-            )
-            atom_dictionary = get_dictionary(
-                os.path.join(
-                    os.path.dirname(os.path.realpath(__file__)), "dictionary_blank.json"
-                )
-            )
-        else:
-            dictionary_file_path = os.path.join(
-                data_path, processing_args["dictionary_path"]
-            )
-            if os.path.exists(dictionary_file_path) == False:
-                print("Atom dictionary not found, exiting program...")
-                sys.exit()
-            else:
-                print("Loading atom dictionary from file.")
-                atom_dictionary = get_dictionary(dictionary_file_path)
+    # 导入原子特征字典
+    dict_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                             "dictionary_default.json",)
+    assert os.path.exists(dict_path), "Atom Dict Not found! "
 
-    ##Load targets
+    print("Using default dictionary.")
+    atom_dictionary = get_dictionary(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "dictionary_default.json",
+        )
+    )
+        
+
+    # 导入Tc target
     target_property_file = os.path.join(data_path, processing_args["target_path"])
     assert os.path.exists(target_property_file), (
             "targets not found in " + target_property_file
@@ -354,7 +232,7 @@ def process_data(data_path, processed_path, processing_args):
         reader = csv.reader(f)
         target_data = [row for row in reader]
 
-    ##Process structure files and create structure graphs
+    # 晶胞特征构建，cif数据处理
     data_list = []
     for index in range(0, len(target_data)):
 
@@ -365,14 +243,16 @@ def process_data(data_path, processed_path, processing_args):
         if os.path.exists(file_name) == False:
             print("File not found: ", file_name)
             continue
-        ##Read in structure file using pymatgen
+
+        # 存在晶胞数据使用pymatgen报错，同时使用ase进行读取
         try:
             parser = CifParser(file_name)
             pym_atoms = parser.parse_structures(primitive=True)[0]
         except:
             pym_atoms = ase.io.read(file_name)
             pym_atoms = AseAtomsAdaptor.get_structure(pym_atoms)
-        # 扩充单个原子的晶胞
+
+        ## 超级晶胞构建：扩充单个原子的晶胞
         if len(pym_atoms) == 1:
             pym_atoms = pym_atoms * (2, 2, 2)
         data.pym_atoms = pym_atoms
@@ -396,6 +276,7 @@ def process_data(data_path, processed_path, processing_args):
         out = dense_to_sparse(distance_matrix_trimmed)
         edge_index = out[0]
         edge_weight = out[1]
+
         # 原始自连接
         edge_index, edge_weight = add_self_loops(
             edge_index, edge_weight, fill_value=0)
@@ -411,6 +292,7 @@ def process_data(data_path, processed_path, processing_args):
         data.edge_descriptor["distance"] = edge_weight
         data.edge_descriptor["mask"] = distance_matrix_mask
 
+        # 基类特征构建
         target = target_data[index][3:]
         y = torch.Tensor(np.array([target], dtype=np.float32))
         family = target_data[index][1]
@@ -432,7 +314,7 @@ def process_data(data_path, processed_path, processing_args):
             data.if_order = torch.tensor([1, 0]).float().reshape(1, -1)
         data.y = y
 
-        # create global feature
+        # 全局特征构建
         disorder = False
         for site in pym_atoms:
             for element, occupancy in site.species.items():
@@ -441,6 +323,7 @@ def process_data(data_path, processed_path, processing_args):
                     break
             break
         occupancy1 = []
+        ### disorder根据occupy特殊处理
         if disorder:
             atom_index = []
             atom_index1 = []
@@ -487,17 +370,18 @@ def process_data(data_path, processed_path, processing_args):
                          pym_atoms.lattice.alpha, pym_atoms.lattice.beta, pym_atoms.lattice.gamma,
                          pym_atoms.volume, pym_atoms.density]).reshape(1, -1)
         info = torch.Tensor(info).float()
-        # info = torch.cat([info, data.family, data.glob_feat], dim=1)
+
         if data_path.find('disorder') != -1:
             info = torch.cat([info, data.family, data.disorder_feat], dim=1)
         else:
             info = torch.cat([info, data.family], dim=1)
-        # info = data.family
+
         info = info.repeat(len(atom_index), 1)
         data.info = torch.Tensor(info).float()
         data.glob_feat = torch.cat([data.glob_feat, data.info], dim=1)
 
         data.structure_id = [[structure_id] * len(data.y)]
+
         # 打印处理进度
         if processing_args["verbose"] == "True" and (
                 (index + 1) % 500 == 0 or (index + 1) == len(target_data)
@@ -523,46 +407,34 @@ def process_data(data_path, processed_path, processing_args):
         )
 
     ##Generate edge features
-    if processing_args["edge_features"] == "True":
-
-        ##Distance descriptor using a Gaussian basis
-        distance_gaussian = GaussianSmearing(
-            0, 1, processing_args["graph_edge_length"], 0.2
+    
+    # 边特征计算
+    ## Distance descriptor using a Gaussian basis
+    distance_gaussian = GaussianSmearing(
+        0, 1, processing_args["graph_edge_length"], 0.2
+    )
+    NormalizeEdge(data_list, "distance")
+    for index in range(0, len(data_list)):
+        data_list[index].edge_attr = distance_gaussian(
+            data_list[index].edge_descriptor["distance"]
         )
-        # print(GetRanges(data_list, 'distance'))
-        NormalizeEdge(data_list, "distance")
-        # print(GetRanges(data_list, 'distance'))
-        for index in range(0, len(data_list)):
-            data_list[index].edge_attr = distance_gaussian(
-                data_list[index].edge_descriptor["distance"]
-            )
-            if processing_args["verbose"] == "True" and (
-                    (index + 1) % 500 == 0 or (index + 1) == len(target_data)
-            ):
-                print("Edge processed: ", index + 1, "out of", len(target_data))
+        if processing_args["verbose"] == "True" and (
+                (index + 1) % 500 == 0 or (index + 1) == len(target_data)
+        ):
+            print("Edge processed: ", index + 1, "out of", len(target_data))
 
     Cleanup(data_list, ["ase", "edge_descriptor"])
 
     if os.path.isdir(os.path.join(data_path, processed_path)) == False:
         os.mkdir(os.path.join(data_path, processed_path))
 
-    ##Save processed dataset to file
-    if processing_args["dataset_type"] == "inmemory":
-        data, slices = InMemoryDataset.collate(data_list)
-        torch.save((data, slices), os.path.join(data_path, processed_path, "data.pt"))
-
-    elif processing_args["dataset_type"] == "large":
-        for i in range(0, len(data_list)):
-            torch.save(
-                data_list[i],
-                os.path.join(
-                    os.path.join(data_path, processed_path), "data_{}.pt".format(i)
-                ),
-            )
+    # 存储处理后数据集
+    data, slices = InMemoryDataset.collate(data_list)
+    torch.save((data, slices), os.path.join(data_path, processed_path, "data.pt"))
 
 
 ################################################################################
-#  Processing sub-functions
+#  预处理函数
 ################################################################################
 
 ##Selects edges with distance threshold and limited number of neighbors
