@@ -123,8 +123,8 @@ Training:
     verbosity: 10
     
 Models:        
-    CGCNN_demo:
-        model: CGCNN
+    BiSPGCN:
+        model: BiSPGCN
         dim1: 64
         dim2: 150
         pre_fc_count: 1

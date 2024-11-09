@@ -14,8 +14,8 @@ from torch_geometric.nn import (
 from torch_scatter import scatter_mean, scatter_add, scatter_max, scatter
 
 
-# CGCNN
-class CGCNN(torch.nn.Module):
+# Bi-SPGCN
+class BiSPGCN(torch.nn.Module):
     def __init__(
             self,
             data,
@@ -33,7 +33,7 @@ class CGCNN(torch.nn.Module):
             dropout_rate=0.0,
             **kwargs
     ):
-        super(CGCNN, self).__init__()
+        super(BiSPGCN, self).__init__()
 
         if batch_track_stats == "False":
             self.batch_track_stats = False

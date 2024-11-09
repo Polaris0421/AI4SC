@@ -1,7 +1,7 @@
-from .cgcnn import CGCNN
+from .bispgcn import BiSPGCN
 from .deep_gatgnn import DEEP_GATGNN
 
 __all__ = [
-    "CGCNN",
+    "BiSPGCN",
     "DEEP_GATGNN"
 ]

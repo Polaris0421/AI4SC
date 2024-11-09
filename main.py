@@ -54,7 +54,7 @@ def main():
         "--model",
         default=None,
         type=str,
-        help="CGCNN_demo, MPNN_demo, SchNet_demo, MEGNet_demo, GCN_net_demo, SOAP_demo, SM_demo",
+        help="BiSPGCN, DEEP_GATGNN_demo",
     )
     parser.add_argument(
         "--seed",
