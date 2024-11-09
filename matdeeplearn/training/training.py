@@ -110,7 +110,7 @@ def evaluate(loader, model, loss_method, rank, out=False):
         ssr = np.sum(residual ** 2)
         r2 = 1 - ssr / np.sum((target - np.mean(target)) ** 2)
         mae = np.mean(np.abs(residual))
-        print('Result: ', [mae, r2])
+        print('MAE&R2: ', [mae, r2])
         return loss_all, test_out, [mae, r2]
     elif out == False:
         return loss_all
@@ -310,7 +310,7 @@ def train_regular(
         training_parameters=None,
         model_parameters=None,
         pt_model=None,
-        find_disorder=False,
+        seed=0,
 ):
     ##DDP
     # ddp_setup(rank, world_size)
@@ -407,69 +407,18 @@ def train_regular(
         train_error, train_out, train_metrics = evaluate(
             train_loader, model, training_parameters["loss"], rank, out=True
         )
-        print("Train Error: {:.5f}".format(train_error))
 
         ##Get val error
         if val_loader != None:
             val_error, val_out, val_metrics = evaluate(
                 val_loader, model, training_parameters["loss"], rank, out=True
             )
-            print("Val Error: {:.5f}".format(val_error))
 
         ##Get test error
         if test_loader != None:
             test_error, test_out, test_metrics = evaluate(
                 test_loader, model, training_parameters["loss"], rank, out=True
             )
-            print("Test Error: {:.5f}".format(test_error))
-
-        # 单独返回disorder上的结果
-        if rank in (0, "cpu", "cuda") and find_disorder:
-
-            train_error = val_error = test_error = float("NaN")
-
-            ##workaround to get training output in DDP mode
-            ##outputs are slightly different, could be due to dropout or batchnorm?
-            (
-                train_loader,
-                val_loader,
-                test_loader,
-                train_sampler,
-                train_dataset,
-                _,
-                _,
-            ) = loader_setup(
-                data_path,
-                training_parameters["train_ratio"],
-                training_parameters["val_ratio"],
-                training_parameters["test_ratio"],
-                model_parameters["batch_size"],
-                dataset,
-                rank,
-                find_disorder,
-            )
-
-            ##Get train error in eval mode
-            dis_train_error, _, _ = evaluate(
-                train_loader, model, training_parameters["loss"], rank, out=True
-            )
-            print("Disorder Train Error: {:.5f}".format(dis_train_error))
-
-            ##Get val error
-            if val_loader != None:
-                dis_val_error, _, _ = evaluate(
-                    val_loader, model, training_parameters["loss"], rank, out=True
-                )
-                print("Disorder Val Error: {:.5f}".format(dis_val_error))
-
-            ##Get test error
-            if test_loader != None:
-                dis_test_error, _, _ = evaluate(
-                    test_loader, model, training_parameters["loss"], rank, out=True
-                )
-                print("Disorder Test Error: {:.5f}".format(dis_test_error))
-
-
 
         ##Save model
         if job_parameters["save_model"] == "True":
@@ -604,7 +553,7 @@ def train_repeat(
     for i in range(0, job_parameters["repeat_trials"]):
 
         ##new seed each time for different data split
-        job_parameters["seed"]= i+1
+        job_parameters["seed"] = i+1
         seed_everything(job_parameters["seed"])
 
         if i == 0:
@@ -625,7 +574,7 @@ def train_repeat(
                 training_parameters,
                 model_parameters,
                 pt_model,
-                find_disorder=find_disorder
+                seed=job_parameters["seed"]
             )
         else: ## 现版本仅支持单卡训练
             print("Running on one GPU")
@@ -637,7 +586,7 @@ def train_repeat(
                 training_parameters,
                 model_parameters,
                 pt_model,
-                find_disorder=find_disorder
+                seed=job_parameters["seed"]
             )
             
     ##Compile error metrics from individual trials
