@@ -9,7 +9,7 @@
 # 一、代码框架参考
 1. 本仓库为基于[DeepGATGNN](https://github.com/usccolumbia/deeperGATGNN)与[MatDeepLearn](https://github.com/Fung-Lab/MatDeepLearn)框架所构建；
 2. 环境版本要求请参考[requirement.txt](./requirements.txt)文件
-
+3. 置信度计算我们使用R语言，相关计算、绘图代码与实例数据已放置于[Confidence](./Confidence/)文件夹中
 
 
 
