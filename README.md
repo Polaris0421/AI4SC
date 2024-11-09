@@ -62,6 +62,16 @@ python main.py --data_path="temp_data/order_data" --run_mode="Repeat" --model="B
 python main.py --data_path="temp_data/disorder_data" --run_mode="Repeat" --model="DEEP_GATGNN_demo" --batch_size="31"  --save_model="FALSE" --epochs="500" --aug="True"  --aug_times=2 --aug_stage=0.0  --reprocess="True"  --format="cif" --gc_count="15"
 ```
 
+测试可按照如下使用：
+```bash
+# Order
+python main.py --data_path="temp_data/order_data" --run_mode="Predict" --model="BiSPGCN" --model_path="results/order.pth" 
+
+# Disorder
+ python main.py --data_path="temp_data/disorder_data" --run_mode="Predict" --model="DEEP_GATGNN_demo" --model_path="results/disorder.pth"
+
+```
+
 # 三、模型结果对比
 
 - **消融实验结果 Order**

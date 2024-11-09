@@ -42,7 +42,7 @@ def main():
         "--run_mode",
         default=None,
         type=str,
-        help="run modes: Training, Predict, Repeat, CV, Hyperparameter, Ensemble, Analysis",
+        help="run modes: Predict, Repeat",
     )
     parser.add_argument(
         "--job_name",
@@ -267,7 +267,7 @@ def main():
             config["Models"][key]["pt"] = args.pt
 
     if run_mode == "Predict":
-        config["Models"] = {}
+        config["Models"] = config["Models"].get(config["Job"]["model"].strip("'"))
     else:
         config["Models"] = config["Models"].get(config["Job"]["model"].strip("'"))
 
@@ -300,8 +300,9 @@ def main():
     ## 预测模式
     if run_mode == "Predict":
         print("Starting prediction from trained model")
+        print(config["Job"]["model"])
         train_error = training.predict(
-            dataset, config["Training"]["loss"], config["Job"]
+            dataset, config["Training"]["loss"], config["Job"], config["Models"]
         )
         print("Test Error: {:.5f}".format(train_error))
 

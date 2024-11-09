@@ -9,6 +9,7 @@ import numpy as np
 from functools import partial
 import platform
 import random
+import sys
 
 ##Torch imports
 import torch.nn.functional as F
@@ -464,7 +465,7 @@ def train_regular(
 
 
 ###Predict using a saved movel
-def predict(dataset, loss, job_parameters=None):
+def predict(dataset, loss, job_parameters=None, model_parameters=None):
     rank = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     ##Loads predict dataset in one go, care needed for large datasets)
