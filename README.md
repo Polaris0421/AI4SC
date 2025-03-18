@@ -1,5 +1,5 @@
 # Bi-SPGCN
-本仓库为2024第二届大湾区AI For Science科技竞赛CG2407题目解决方案[Bi-SPGCN](#bi-spgcn)（Bi-level Superconductivity Prediction Graph Convolutional Network）
+本仓库为2024[第二届大湾区AI For Science科技竞赛](http://www.aisccc.cn/competition/competition-details?id=53)CG2407题目解决方案[Bi-SPGCN](#bi-spgcn)（Bi-level Superconductivity Prediction Graph Convolutional Network）
 
 本报告利用图神经网络以实现基于晶体结构信息的超导转变温度的预测，
 在有序结构数据上提出了Bi-SPGCN(Bi-level Superconductivity Prediction Graph 
